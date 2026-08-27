@@ -612,3 +612,15 @@ th { color:#667085; font-size:12px; background:#fcfcfd; }
     padding: 20px;
   }
 }
+.worker-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #155eef;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.worker-link:hover {
+  text-decoration: underline;
+}
