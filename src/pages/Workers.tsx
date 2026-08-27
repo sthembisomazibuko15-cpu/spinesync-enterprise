@@ -256,17 +256,18 @@ export default function Workers() {
       )
     }, [workers, query])
 
-  function formatStatus(
-    value: string
-  ) {
-    return value
-      .replaceAll('_', ' ')
-      .replace(
-        /\b\w/g,
-        (letter) =>
-          letter.toUpperCase()
-      )
-  }
+function formatStatus(
+  value: string
+) {
+  return value
+    .split('_')
+    .join(' ')
+    .replace(
+      /\b\w/g,
+      (letter: string) =>
+        letter.toUpperCase()
+    )
+}
 
   return (
     <div className="stack">
