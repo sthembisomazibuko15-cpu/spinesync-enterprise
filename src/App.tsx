@@ -6,11 +6,13 @@ import {
 
 import AppShell from './components/AppShell'
 import ProtectedRoute from './components/ProtectedRoute'
+import OrganisationRoute from './components/OrganisationRoute'
 
 import Assessments from './pages/Assessments'
 import Dashboard from './pages/Dashboard'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
+import Onboarding from './pages/Onboarding'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Workers from './pages/Workers'
@@ -24,10 +26,21 @@ export default function App() {
       />
 
       <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <Onboarding />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/"
         element={
           <ProtectedRoute>
-            <AppShell />
+            <OrganisationRoute>
+              <AppShell />
+            </OrganisationRoute>
           </ProtectedRoute>
         }
       >
