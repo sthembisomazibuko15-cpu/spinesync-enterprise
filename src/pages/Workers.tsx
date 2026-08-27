@@ -11,6 +11,8 @@ import {
   type FormEvent,
 } from 'react'
 
+import { useNavigate } from 'react-router-dom'
+
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -63,6 +65,7 @@ const emptyForm = {
 
 export default function Workers() {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [workers, setWorkers] =
     useState<Worker[]>([])
@@ -134,10 +137,7 @@ export default function Workers() {
     }
 
     if (!profile?.organisation_id) {
-      setError(
-        'No organisation assigned.'
-      )
-
+      setError('No organisation assigned.')
       setLoading(false)
       return
     }
@@ -150,7 +150,6 @@ export default function Workers() {
       loadWorkers(
         profile.organisation_id
       ),
-
       loadOptions(
         profile.organisation_id
       ),
@@ -388,9 +387,7 @@ export default function Workers() {
     <div className="stack">
       <div className="section-heading">
         <div>
-          <h2>
-            Workers
-          </h2>
+          <h2>Workers</h2>
 
           <p>
             Manage the mine workforce
@@ -417,20 +414,14 @@ export default function Workers() {
 
       <div className="worker-summary-grid">
         <div className="worker-summary-card">
-          <span>
-            Total workers
-          </span>
-
+          <span>Total workers</span>
           <strong>
             {workers.length}
           </strong>
         </div>
 
         <div className="worker-summary-card">
-          <span>
-            Fit
-          </span>
-
+          <span>Fit</span>
           <strong>
             {
               workers.filter(
@@ -443,10 +434,7 @@ export default function Workers() {
         </div>
 
         <div className="worker-summary-card">
-          <span>
-            Restricted
-          </span>
-
+          <span>Restricted</span>
           <strong>
             {
               workers.filter(
@@ -459,10 +447,7 @@ export default function Workers() {
         </div>
 
         <div className="worker-summary-card">
-          <span>
-            Not assessed
-          </span>
-
+          <span>Not assessed</span>
           <strong>
             {
               workers.filter(
@@ -499,19 +484,15 @@ export default function Workers() {
                 <th>
                   Employee no.
                 </th>
-
                 <th>
                   Worker
                 </th>
-
                 <th>
                   Sex
                 </th>
-
                 <th>
                   Employment
                 </th>
-
                 <th>
                   Fitness
                 </th>
@@ -550,14 +531,21 @@ export default function Workers() {
                       </td>
 
                       <td>
-                        <strong>
+                        <button
+                          className="worker-link"
+                          onClick={() =>
+                            navigate(
+                              `/workers/${worker.id}`
+                            )
+                          }
+                        >
                           {
                             worker.first_name
                           }{' '}
                           {
                             worker.last_name
                           }
-                        </strong>
+                        </button>
                       </td>
 
                       <td>
@@ -633,9 +621,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         employee_number:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                     required
@@ -653,9 +639,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         first_name:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                     required
@@ -673,9 +657,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         last_name:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                     required
@@ -694,9 +676,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         date_of_birth:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                   />
@@ -711,24 +691,19 @@ export default function Workers() {
                       setForm({
                         ...form,
                         sex:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                   >
                     <option value="">
                       Select sex
                     </option>
-
                     <option value="male">
                       Male
                     </option>
-
                     <option value="female">
                       Female
                     </option>
-
                     <option value="other">
                       Other
                     </option>
@@ -746,9 +721,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         operation_id:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                         site_id: '',
                         department_id: '',
                       })
@@ -791,9 +764,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         site_id:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                         department_id: '',
                       })
                     }
@@ -841,9 +812,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         department_id:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                   >
@@ -887,9 +856,7 @@ export default function Workers() {
                       setForm({
                         ...form,
                         job_profile_id:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                   >
@@ -921,28 +888,22 @@ export default function Workers() {
                       setForm({
                         ...form,
                         employment_status:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                   >
                     <option value="active">
                       Active
                     </option>
-
                     <option value="medical_leave">
                       Medical leave
                     </option>
-
                     <option value="restricted_duty">
                       Restricted duty
                     </option>
-
                     <option value="rehabilitation">
                       Rehabilitation
                     </option>
-
                     <option value="inactive">
                       Inactive
                     </option>
@@ -960,32 +921,25 @@ export default function Workers() {
                       setForm({
                         ...form,
                         fitness_status:
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                       })
                     }
                   >
                     <option value="not_assessed">
                       Not assessed
                     </option>
-
                     <option value="fit">
                       Fit
                     </option>
-
                     <option value="fit_with_restrictions">
                       Fit with restrictions
                     </option>
-
                     <option value="temporarily_unfit">
                       Temporarily unfit
                     </option>
-
                     <option value="rehabilitation">
                       Rehabilitation
                     </option>
-
                     <option value="reassessment_required">
                       Reassessment required
                     </option>
