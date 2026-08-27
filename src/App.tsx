@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 
 import Assessments from './pages/Assessments'
 import Dashboard from './pages/Dashboard'
+import FceTesting from './pages/FceTesting'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
@@ -80,6 +81,11 @@ export default function App() {
         <Route
           path="assessments/new"
           element={<NewAssessment />}
+        />
+
+        <Route
+          path="assessments/:id"
+          element={<FceTesting />}
         />
 
         <Route
