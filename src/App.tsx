@@ -16,6 +16,7 @@ import MiningStructure from './pages/MiningStructure'
 import Onboarding from './pages/Onboarding'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
+import WorkerProfile from './pages/WorkerProfile'
 import Workers from './pages/Workers'
 
 export default function App() {
@@ -63,6 +64,11 @@ export default function App() {
         <Route
           path="workers"
           element={<Workers />}
+        />
+
+        <Route
+          path="workers/:id"
+          element={<WorkerProfile />}
         />
 
         <Route
