@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
+import NewAssessment from './pages/NewAssessment'
 import Onboarding from './pages/Onboarding'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -74,6 +75,11 @@ export default function App() {
         <Route
           path="assessments"
           element={<Assessments />}
+        />
+
+        <Route
+          path="assessments/new"
+          element={<NewAssessment />}
         />
 
         <Route
