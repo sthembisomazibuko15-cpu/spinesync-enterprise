@@ -5,13 +5,14 @@ import {
 } from 'react-router-dom'
 
 import AppShell from './components/AppShell'
-import ProtectedRoute from './components/ProtectedRoute'
 import OrganisationRoute from './components/OrganisationRoute'
+import ProtectedRoute from './components/ProtectedRoute'
 
 import Assessments from './pages/Assessments'
 import Dashboard from './pages/Dashboard'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
+import MiningStructure from './pages/MiningStructure'
 import Onboarding from './pages/Onboarding'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -67,6 +68,11 @@ export default function App() {
         <Route
           path="assessments"
           element={<Assessments />}
+        />
+
+        <Route
+          path="mining-structure"
+          element={<MiningStructure />}
         />
 
         <Route
