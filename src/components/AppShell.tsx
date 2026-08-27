@@ -5,6 +5,7 @@ import {
   FileBarChart,
   LayoutDashboard,
   LogOut,
+  Network,
   Settings,
   Users,
 } from 'lucide-react'
@@ -33,6 +34,11 @@ const navItems = [
     icon: ClipboardList,
   },
   {
+    to: '/mining-structure',
+    label: 'Mining Structure',
+    icon: Network,
+  },
+  {
     to: '/job-profiles',
     label: 'Job Profiles',
     icon: BriefcaseBusiness,
@@ -50,12 +56,14 @@ const navItems = [
 ]
 
 export default function AppShell() {
-  const { user, signOut } = useAuth()
+  const {
+    user,
+    signOut,
+  } = useAuth()
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-
         <div className="brand">
           <div className="brand-icon">
             <Activity size={22} />
@@ -103,7 +111,6 @@ export default function AppShell() {
         </nav>
 
         <div className="sidebar-footer">
-
           <div className="small-label">
             Signed in
           </div>
@@ -119,12 +126,10 @@ export default function AppShell() {
             <LogOut size={16} />
             Sign out
           </button>
-
         </div>
       </aside>
 
       <main className="main-content">
-
         <header className="topbar">
           <div>
             <h1>
@@ -139,14 +144,13 @@ export default function AppShell() {
           </div>
 
           <button className="profile-button">
-            SM
+            SS
           </button>
         </header>
 
         <section className="page">
           <Outlet />
         </section>
-
       </main>
     </div>
   )
