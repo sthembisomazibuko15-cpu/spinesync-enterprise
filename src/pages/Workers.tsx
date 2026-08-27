@@ -11,35 +11,52 @@ import {
   type FormEvent,
 } from 'react'
 
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 
 type Worker = {
   id: string
   employee_number: string
   first_name: string
   last_name: string
-
-  date_of_birth:
-    | string
-    | null
-
-  sex:
-    | string
-    | null
-
+  sex: string | null
   employment_status: string
   fitness_status: string
-
   created_at: string
 }
 
-const emptyWorkerForm = {
+type Operation = {
+  id: string
+  name: string
+}
+
+type Site = {
+  id: string
+  operation_id: string
+  name: string
+}
+
+type Department = {
+  id: string
+  site_id: string
+  name: string
+}
+
+type JobProfile = {
+  id: string
+  title: string
+}
+
+const emptyForm = {
   employee_number: '',
   first_name: '',
   last_name: '',
   date_of_birth: '',
   sex: '',
+  operation_id: '',
+  site_id: '',
+  department_id: '',
+  job_profile_id: '',
   employment_status: 'active',
   fitness_status: 'not_assessed',
 }
@@ -50,6 +67,27 @@ export default function Workers() {
   const [workers, setWorkers] =
     useState<Worker[]>([])
 
+  const [operations, setOperations] =
+    useState<Operation[]>([])
+
+  const [sites, setSites] =
+    useState<Site[]>([])
+
+  const [
+    departments,
+    setDepartments,
+  ] = useState<Department[]>([])
+
+  const [
+    jobProfiles,
+    setJobProfiles,
+  ] = useState<JobProfile[]>([])
+
+  const [
+    organisationId,
+    setOrganisationId,
+  ] = useState<string | null>(null)
+
   const [query, setQuery] =
     useState('')
 
@@ -59,17 +97,16 @@ export default function Workers() {
   const [saving, setSaving] =
     useState(false)
 
-  const [showModal, setShowModal] =
-    useState(false)
+  const [
+    showModal,
+    setShowModal,
+  ] = useState(false)
 
   const [error, setError] =
     useState<string | null>(null)
 
-  const [organisationId, setOrganisationId] =
-    useState<string | null>(null)
-
   const [form, setForm] =
-    useState(emptyWorkerForm)
+    useState(emptyForm)
 
   useEffect(() => {
     initialise()
@@ -98,7 +135,7 @@ export default function Workers() {
 
     if (!profile?.organisation_id) {
       setError(
-        'No organisation assigned to this account.'
+        'No organisation assigned.'
       )
 
       setLoading(false)
@@ -109,9 +146,15 @@ export default function Workers() {
       profile.organisation_id
     )
 
-    await loadWorkers(
-      profile.organisation_id
-    )
+    await Promise.all([
+      loadWorkers(
+        profile.organisation_id
+      ),
+
+      loadOptions(
+        profile.organisation_id
+      ),
+    ])
 
     setLoading(false)
   }
@@ -129,7 +172,6 @@ export default function Workers() {
         employee_number,
         first_name,
         last_name,
-        date_of_birth,
         sex,
         employment_status,
         fitness_status,
@@ -156,17 +198,83 @@ export default function Workers() {
     )
   }
 
-  async function handleAddWorker(
+  async function loadOptions(
+    organisation: string
+  ) {
+    const [
+      operationsResult,
+      sitesResult,
+      departmentsResult,
+      jobsResult,
+    ] = await Promise.all([
+      supabase
+        .from('operations')
+        .select('id,name')
+        .eq(
+          'organisation_id',
+          organisation
+        )
+        .order('name'),
+
+      supabase
+        .from('sites')
+        .select(
+          'id,operation_id,name'
+        )
+        .order('name'),
+
+      supabase
+        .from('departments')
+        .select(
+          'id,site_id,name'
+        )
+        .order('name'),
+
+      supabase
+        .from('job_profiles')
+        .select('id,title')
+        .eq(
+          'organisation_id',
+          organisation
+        )
+        .order('title'),
+    ])
+
+    const firstError =
+      operationsResult.error ||
+      sitesResult.error ||
+      departmentsResult.error ||
+      jobsResult.error
+
+    if (firstError) {
+      setError(firstError.message)
+      return
+    }
+
+    setOperations(
+      operationsResult.data ?? []
+    )
+
+    setSites(
+      sitesResult.data ?? []
+    )
+
+    setDepartments(
+      departmentsResult.data ?? []
+    )
+
+    setJobProfiles(
+      jobsResult.data ?? []
+    )
+  }
+
+  async function saveWorker(
     event: FormEvent
   ) {
     event.preventDefault()
 
-    if (!organisationId) {
-      setError(
-        'Organisation not loaded.'
-      )
+    if (!organisationId)
       return
-    }
 
     setSaving(true)
     setError(null)
@@ -196,6 +304,22 @@ export default function Workers() {
           form.sex ||
           null,
 
+        operation_id:
+          form.operation_id ||
+          null,
+
+        site_id:
+          form.site_id ||
+          null,
+
+        department_id:
+          form.department_id ||
+          null,
+
+        job_profile_id:
+          form.job_profile_id ||
+          null,
+
         employment_status:
           form.employment_status,
 
@@ -212,10 +336,7 @@ export default function Workers() {
       return
     }
 
-    setForm(
-      emptyWorkerForm
-    )
-
+    setForm(emptyForm)
     setShowModal(false)
 
     await loadWorkers(
@@ -232,42 +353,36 @@ export default function Workers() {
           .trim()
           .toLowerCase()
 
-      if (!search) {
+      if (!search)
         return workers
-      }
 
       return workers.filter(
-        (worker) => {
-          const values = [
+        (worker) =>
+          [
             worker.employee_number,
             worker.first_name,
             worker.last_name,
-            worker.employment_status,
-            worker.fitness_status,
-          ]
-
-          return values.some(
+          ].some(
             (value) =>
               value
-                ?.toLowerCase()
+                .toLowerCase()
                 .includes(search)
           )
-        }
       )
     }, [workers, query])
 
-function formatStatus(
-  value: string
-) {
-  return value
-    .split('_')
-    .join(' ')
-    .replace(
-      /\b\w/g,
-      (letter: string) =>
-        letter.toUpperCase()
-    )
-}
+  function formatStatus(
+    value: string
+  ) {
+    return value
+      .split('_')
+      .join(' ')
+      .replace(
+        /\b\w/g,
+        (letter: string) =>
+          letter.toUpperCase()
+      )
+  }
 
   return (
     <div className="stack">
@@ -278,9 +393,8 @@ function formatStatus(
           </h2>
 
           <p>
-            Manage employee records,
-            functional status and
-            assessment readiness.
+            Manage the mine workforce
+            and functional status.
           </p>
         </div>
 
@@ -401,17 +515,13 @@ function formatStatus(
                 <th>
                   Fitness
                 </th>
-
-                <th>
-                  Date added
-                </th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     Loading workers...
                   </td>
                 </tr>
@@ -421,8 +531,8 @@ function formatStatus(
                 filteredWorkers.length ===
                   0 && (
                   <tr>
-                    <td colSpan={6}>
-                      No workers found.
+                    <td colSpan={5}>
+                      No workers yet.
                     </td>
                   </tr>
                 )}
@@ -431,9 +541,7 @@ function formatStatus(
                 filteredWorkers.map(
                   (worker) => (
                     <tr
-                      key={
-                        worker.id
-                      }
+                      key={worker.id}
                     >
                       <td>
                         {
@@ -461,11 +569,9 @@ function formatStatus(
                       </td>
 
                       <td>
-                        <span className="status-pill">
-                          {formatStatus(
-                            worker.employment_status
-                          )}
-                        </span>
+                        {formatStatus(
+                          worker.employment_status
+                        )}
                       </td>
 
                       <td>
@@ -476,12 +582,6 @@ function formatStatus(
                             worker.fitness_status
                           )}
                         </span>
-                      </td>
-
-                      <td>
-                        {new Date(
-                          worker.created_at
-                        ).toLocaleDateString()}
                       </td>
                     </tr>
                   )
@@ -503,14 +603,10 @@ function formatStatus(
                 <h2>
                   Add worker
                 </h2>
-
-                <p>
-                  Create a new
-                  workforce record.
-                </p>
               </div>
 
               <button
+                type="button"
                 className="modal-close"
                 onClick={() =>
                   setShowModal(false)
@@ -521,12 +617,11 @@ function formatStatus(
             </div>
 
             <form
-              onSubmit={
-                handleAddWorker
-              }
               className="worker-form"
+              onSubmit={saveWorker}
             >
               <div className="form-grid">
+
                 <label>
                   Employee number
 
@@ -534,9 +629,7 @@ function formatStatus(
                     value={
                       form.employee_number
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         employee_number:
@@ -545,7 +638,6 @@ function formatStatus(
                             .value,
                       })
                     }
-                    placeholder="EMP-001"
                     required
                   />
                 </label>
@@ -557,9 +649,7 @@ function formatStatus(
                     value={
                       form.first_name
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         first_name:
@@ -579,9 +669,7 @@ function formatStatus(
                     value={
                       form.last_name
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         last_name:
@@ -602,9 +690,7 @@ function formatStatus(
                     value={
                       form.date_of_birth
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         date_of_birth:
@@ -620,12 +706,8 @@ function formatStatus(
                   Sex
 
                   <select
-                    value={
-                      form.sex
-                    }
-                    onChange={(
-                      event
-                    ) =>
+                    value={form.sex}
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         sex:
@@ -636,7 +718,7 @@ function formatStatus(
                     }
                   >
                     <option value="">
-                      Select
+                      Select sex
                     </option>
 
                     <option value="male">
@@ -650,10 +732,181 @@ function formatStatus(
                     <option value="other">
                       Other
                     </option>
+                  </select>
+                </label>
 
-                    <option value="prefer_not_to_say">
-                      Prefer not to say
+                <label>
+                  Mining operation
+
+                  <select
+                    value={
+                      form.operation_id
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        operation_id:
+                          event
+                            .target
+                            .value,
+                        site_id: '',
+                        department_id: '',
+                      })
+                    }
+                  >
+                    <option value="">
+                      Select operation
                     </option>
+
+                    {operations.map(
+                      (operation) => (
+                        <option
+                          key={
+                            operation.id
+                          }
+                          value={
+                            operation.id
+                          }
+                        >
+                          {
+                            operation.name
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
+
+                <label>
+                  Site / Shaft
+
+                  <select
+                    value={
+                      form.site_id
+                    }
+                    disabled={
+                      !form.operation_id
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        site_id:
+                          event
+                            .target
+                            .value,
+                        department_id: '',
+                      })
+                    }
+                  >
+                    <option value="">
+                      Select site
+                    </option>
+
+                    {sites
+                      .filter(
+                        (site) =>
+                          site.operation_id ===
+                          form.operation_id
+                      )
+                      .map(
+                        (site) => (
+                          <option
+                            key={
+                              site.id
+                            }
+                            value={
+                              site.id
+                            }
+                          >
+                            {
+                              site.name
+                            }
+                          </option>
+                        )
+                      )}
+                  </select>
+                </label>
+
+                <label>
+                  Department
+
+                  <select
+                    value={
+                      form.department_id
+                    }
+                    disabled={
+                      !form.site_id
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        department_id:
+                          event
+                            .target
+                            .value,
+                      })
+                    }
+                  >
+                    <option value="">
+                      Select department
+                    </option>
+
+                    {departments
+                      .filter(
+                        (department) =>
+                          department.site_id ===
+                          form.site_id
+                      )
+                      .map(
+                        (department) => (
+                          <option
+                            key={
+                              department.id
+                            }
+                            value={
+                              department.id
+                            }
+                          >
+                            {
+                              department.name
+                            }
+                          </option>
+                        )
+                      )}
+                  </select>
+                </label>
+
+                <label>
+                  Job profile
+
+                  <select
+                    value={
+                      form.job_profile_id
+                    }
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        job_profile_id:
+                          event
+                            .target
+                            .value,
+                      })
+                    }
+                  >
+                    <option value="">
+                      Select job
+                    </option>
+
+                    {jobProfiles.map(
+                      (job) => (
+                        <option
+                          key={job.id}
+                          value={job.id}
+                        >
+                          {job.title}
+                        </option>
+                      )
+                    )}
                   </select>
                 </label>
 
@@ -664,9 +917,7 @@ function formatStatus(
                     value={
                       form.employment_status
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         employment_status:
@@ -705,9 +956,7 @@ function formatStatus(
                     value={
                       form.fitness_status
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setForm({
                         ...form,
                         fitness_status:
@@ -742,6 +991,7 @@ function formatStatus(
                     </option>
                   </select>
                 </label>
+
               </div>
 
               <div className="modal-actions">
