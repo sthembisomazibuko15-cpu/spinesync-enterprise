@@ -667,7 +667,7 @@ export default function WorkerProfile() {
                               'completed'
                             ) {
                               navigate(
-                                `/assessments/${assessment.id}/outcome`
+                                `/assessments/${assessment.id}/record`
                               )
                             } else {
                               navigate(
