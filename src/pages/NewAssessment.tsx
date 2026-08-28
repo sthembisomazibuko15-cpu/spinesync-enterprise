@@ -1,18 +1,17 @@
 import {
   Activity,
   ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
+  ClipboardPlus,
   HeartPulse,
-  Ruler,
   Save,
   User,
 } from 'lucide-react'
 
 import {
+  FormEvent,
   useEffect,
+  useMemo,
   useState,
-  type FormEvent,
 } from 'react'
 
 import {
@@ -20,20 +19,17 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 
-import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
 type Worker = {
   id: string
-  organisation_id: string
   employee_number: string
   first_name: string
   last_name: string
+  job_profile_id: string | null
 }
 
 export default function NewAssessment() {
-  const { user } = useAuth()
-
   const navigate = useNavigate()
 
   const [searchParams] =
@@ -54,28 +50,22 @@ export default function NewAssessment() {
   const [error, setError] =
     useState<string | null>(null)
 
-  const [form, setForm] =
-    useState({
-      assessment_type: 'fce',
-      assessment_date:
-        new Date()
-          .toISOString()
-          .split('T')[0],
+  const [form, setForm] = useState({
+    assessment_type: 'fce',
+    assessment_date:
+      new Date()
+        .toISOString()
+        .split('T')[0],
 
-      referral_reason: '',
-
-      pain_score: '0',
-
-      systolic_bp: '',
-      diastolic_bp: '',
-      resting_hr: '',
-
-      height_cm: '',
-      weight_kg: '',
-
-      pre_test_status:
-        'cleared',
-    })
+    referral_reason: '',
+    pain_score: '',
+    systolic_bp: '',
+    diastolic_bp: '',
+    resting_hr: '',
+    height_cm: '',
+    weight_kg: '',
+    pre_test_status: 'cleared',
+  })
 
   useEffect(() => {
     loadWorker()
@@ -84,9 +74,8 @@ export default function NewAssessment() {
   async function loadWorker() {
     if (!workerId) {
       setError(
-        'No worker was selected.'
+        'No worker was selected for this assessment.'
       )
-
       setLoading(false)
       return
     }
@@ -98,71 +87,165 @@ export default function NewAssessment() {
       .from('workers')
       .select(`
         id,
-        organisation_id,
         employee_number,
         first_name,
-        last_name
+        last_name,
+        job_profile_id
       `)
       .eq('id', workerId)
       .single()
 
     if (workerError) {
-      setError(
-        workerError.message
-      )
-
+      setError(workerError.message)
       setLoading(false)
       return
     }
 
-    setWorker(
-      data as Worker
-    )
-
+    setWorker(data as Worker)
     setLoading(false)
   }
 
-  const height =
-    Number(form.height_cm)
+  const bmi = useMemo(() => {
+    const height =
+      Number(form.height_cm)
 
-  const weight =
-    Number(form.weight_kg)
+    const weight =
+      Number(form.weight_kg)
 
-  const bmi =
-    height > 0 &&
-    weight > 0
-      ? weight /
-        Math.pow(
-          height / 100,
-          2
-        )
-      : null
+    if (
+      !height ||
+      !weight ||
+      height <= 0 ||
+      weight <= 0
+    ) {
+      return null
+    }
 
-  async function saveAssessment(
+    const metres =
+      height / 100
+
+    return Number(
+      (
+        weight /
+        (metres * metres)
+      ).toFixed(1)
+    )
+  }, [
+    form.height_cm,
+    form.weight_kg,
+  ])
+
+  function updateField(
+    field: keyof typeof form,
+    value: string
+  ) {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  function numberOrNull(
+    value: string
+  ) {
+    if (value.trim() === '') {
+      return null
+    }
+
+    const number =
+      Number(value)
+
+    return Number.isNaN(number)
+      ? null
+      : number
+  }
+
+  async function createAssessment(
     event: FormEvent
   ) {
     event.preventDefault()
 
-    if (!worker || !user)
+    if (!worker) {
       return
+    }
 
     setSaving(true)
     setError(null)
 
+    /*
+      Identify the professional
+      creating the assessment.
+    */
+
+    const {
+      data: authData,
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (
+      authError ||
+      !authData.user
+    ) {
+      setError(
+        authError?.message ||
+          'Unable to identify the logged-in assessor.'
+      )
+      setSaving(false)
+      return
+    }
+
+    /*
+      Load organisation from the
+      logged-in assessor's profile.
+    */
+
+    const {
+      data: profileData,
+      error: profileError,
+    } = await supabase
+      .from('profiles')
+      .select(`
+        organisation_id
+      `)
+      .eq(
+        'id',
+        authData.user.id
+      )
+      .single()
+
+    if (
+      profileError ||
+      !profileData?.organisation_id
+    ) {
+      setError(
+        profileError?.message ||
+          'Your profile is not linked to an organisation.'
+      )
+      setSaving(false)
+      return
+    }
+
+    /*
+      Create assessment.
+
+      assessor_id is permanently
+      stored here.
+    */
+
     const {
       data,
-      error: saveError,
+      error: insertError,
     } = await supabase
       .from('assessments')
       .insert({
         organisation_id:
-          worker.organisation_id,
+          profileData.organisation_id,
 
         worker_id:
           worker.id,
 
         assessor_id:
-          user.id,
+          authData.user.id,
 
         assessment_type:
           form.assessment_type,
@@ -175,53 +258,36 @@ export default function NewAssessment() {
           null,
 
         pain_score:
-          form.pain_score
-            ? Number(
-                form.pain_score
-              )
-            : null,
+          numberOrNull(
+            form.pain_score
+          ),
 
         systolic_bp:
-          form.systolic_bp
-            ? Number(
-                form.systolic_bp
-              )
-            : null,
+          numberOrNull(
+            form.systolic_bp
+          ),
 
         diastolic_bp:
-          form.diastolic_bp
-            ? Number(
-                form.diastolic_bp
-              )
-            : null,
+          numberOrNull(
+            form.diastolic_bp
+          ),
 
         resting_hr:
-          form.resting_hr
-            ? Number(
-                form.resting_hr
-              )
-            : null,
+          numberOrNull(
+            form.resting_hr
+          ),
 
         height_cm:
-          form.height_cm
-            ? Number(
-                form.height_cm
-              )
-            : null,
+          numberOrNull(
+            form.height_cm
+          ),
 
         weight_kg:
-          form.weight_kg
-            ? Number(
-                form.weight_kg
-              )
-            : null,
+          numberOrNull(
+            form.weight_kg
+          ),
 
-        bmi:
-          bmi
-            ? Number(
-                bmi.toFixed(2)
-              )
-            : null,
+        bmi,
 
         pre_test_status:
           form.pre_test_status,
@@ -232,11 +298,10 @@ export default function NewAssessment() {
       .select('id')
       .single()
 
-    if (saveError) {
+    if (insertError) {
       setError(
-        saveError.message
+        insertError.message
       )
-
       setSaving(false)
       return
     }
@@ -250,20 +315,22 @@ export default function NewAssessment() {
     return (
       <div className="auth-loading">
         <div className="loading-spinner" />
-
         <p>
-          Preparing FCE...
+          Preparing assessment...
         </p>
       </div>
     )
   }
 
-  if (error || !worker) {
+  if (
+    error &&
+    !worker
+  ) {
     return (
       <div className="stack">
+
         <div className="error-message">
-          {error ||
-            'Worker not found.'}
+          {error}
         </div>
 
         <button
@@ -272,8 +339,10 @@ export default function NewAssessment() {
             navigate('/workers')
           }
         >
-          Back to workers
+          <ArrowLeft size={16} />
+          Back to Workers
         </button>
+
       </div>
     )
   }
@@ -281,42 +350,39 @@ export default function NewAssessment() {
   return (
     <div className="stack">
 
-      <div className="section-heading">
+      <div className="page-heading">
+
         <div>
-          <button
-            className="back-link button-reset"
-            onClick={() =>
-              navigate(
-                `/workers/${worker.id}`
-              )
-            }
-          >
-            <ArrowLeft size={16} />
-            Worker profile
-          </button>
 
           <span className="eyebrow">
             FUNCTIONAL CAPACITY
             EVALUATION
           </span>
 
-          <h2>
-            New FCE
-          </h2>
+          <h1>
+            New Assessment
+          </h1>
 
           <p>
-            {worker.first_name}{' '}
-            {worker.last_name}
-            {' • '}
-            {worker.employee_number}
+            Complete the pre-test
+            information before beginning
+            functional testing.
           </p>
+
         </div>
 
-        <div className="assessment-status">
-          <Activity size={17} />
+        <button
+          className="secondary-button"
+          onClick={() =>
+            navigate(
+              `/workers/${worker?.id}`
+            )
+          }
+        >
+          <ArrowLeft size={16} />
+          Worker Profile
+        </button>
 
-          Assessment setup
-        </div>
       </div>
 
       {error && (
@@ -325,86 +391,88 @@ export default function NewAssessment() {
         </div>
       )}
 
-      <div className="assessment-progress">
-        <div className="progress-step active">
-          <span>1</span>
-          Setup
+      {/* WORKER SUMMARY */}
+
+      <div className="worker-summary-card">
+
+        <div className="worker-avatar-large">
+          <User size={24} />
         </div>
 
-        <div className="progress-line" />
+        <div>
+          <span>
+            WORKER
+          </span>
 
-        <div className="progress-step">
-          <span>2</span>
-          Screening
+          <h3>
+            {worker?.first_name}{' '}
+            {worker?.last_name}
+          </h3>
+
+          <p>
+            Employee number:{' '}
+            {worker?.employee_number}
+          </p>
         </div>
 
-        <div className="progress-line" />
-
-        <div className="progress-step">
-          <span>3</span>
-          Testing
-        </div>
-
-        <div className="progress-line" />
-
-        <div className="progress-step">
-          <span>4</span>
-          Outcome
-        </div>
       </div>
 
       <form
         className="stack"
-        onSubmit={saveAssessment}
+        onSubmit={createAssessment}
       >
 
-        <section className="panel assessment-section">
+        {/* ASSESSMENT DETAILS */}
+
+        <div className="panel">
+
           <div className="assessment-section-title">
-            <div className="profile-card-icon">
-              <User size={20} />
+
+            <div className="assessment-section-icon">
+              <ClipboardPlus size={20} />
             </div>
 
             <div>
               <h3>
-                Assessment Setup
+                Assessment Details
               </h3>
 
               <p>
-                Confirm assessment
-                details and referral.
+                Record the assessment type,
+                date and referral reason.
               </p>
             </div>
+
           </div>
 
           <div className="form-grid">
 
             <label>
-              Assessment type
+              <span>
+                Assessment Type
+              </span>
 
               <select
                 value={
                   form.assessment_type
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    assessment_type:
-                      event.target.value,
-                  })
+                  updateField(
+                    'assessment_type',
+                    event.target.value
+                  )
                 }
               >
                 <option value="fce">
-                  Functional Capacity
-                  Evaluation
+                  Functional Capacity Evaluation
                 </option>
 
                 <option value="return_to_work">
-                  Return-to-work
-                  assessment
+                  Return-to-Work Assessment
                 </option>
 
                 <option value="baseline">
-                  Baseline assessment
+                  Baseline Assessment
                 </option>
 
                 <option value="reassessment">
@@ -414,7 +482,9 @@ export default function NewAssessment() {
             </label>
 
             <label>
-              Assessment date
+              <span>
+                Assessment Date
+              </span>
 
               <input
                 type="date"
@@ -422,61 +492,69 @@ export default function NewAssessment() {
                   form.assessment_date
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    assessment_date:
-                      event.target.value,
-                  })
+                  updateField(
+                    'assessment_date',
+                    event.target.value
+                  )
                 }
                 required
               />
             </label>
 
-            <label className="form-full">
-              Referral reason
-
-              <textarea
-                value={
-                  form.referral_reason
-                }
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    referral_reason:
-                      event.target.value,
-                  })
-                }
-                placeholder="Example: Return-to-work evaluation following lumbar injury"
-                rows={4}
-              />
-            </label>
-
           </div>
-        </section>
 
-        <section className="panel assessment-section">
+          <label>
+            <span>
+              Referral Reason
+            </span>
+
+            <textarea
+              value={
+                form.referral_reason
+              }
+              onChange={(event) =>
+                updateField(
+                  'referral_reason',
+                  event.target.value
+                )
+              }
+              placeholder="Reason for referral, injury history, return-to-work requirement or other relevant information"
+              rows={4}
+            />
+          </label>
+
+        </div>
+
+        {/* CLINICAL SCREENING */}
+
+        <div className="panel">
+
           <div className="assessment-section-title">
-            <div className="profile-card-icon">
+
+            <div className="assessment-section-icon">
               <HeartPulse size={20} />
             </div>
 
             <div>
               <h3>
-                Pre-Test Screening
+                Pre-Test Clinical Screening
               </h3>
 
               <p>
-                Record baseline
+                Record baseline clinical
                 observations before
-                physical testing.
+                functional testing.
               </p>
             </div>
+
           </div>
 
           <div className="form-grid">
 
             <label>
-              Pain score /10
+              <span>
+                Pain Score /10
+              </span>
 
               <input
                 type="number"
@@ -486,17 +564,19 @@ export default function NewAssessment() {
                   form.pain_score
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    pain_score:
-                      event.target.value,
-                  })
+                  updateField(
+                    'pain_score',
+                    event.target.value
+                  )
                 }
+                placeholder="0"
               />
             </label>
 
             <label>
-              Systolic BP
+              <span>
+                Systolic BP
+              </span>
 
               <input
                 type="number"
@@ -504,18 +584,19 @@ export default function NewAssessment() {
                   form.systolic_bp
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    systolic_bp:
-                      event.target.value,
-                  })
+                  updateField(
+                    'systolic_bp',
+                    event.target.value
+                  )
                 }
-                placeholder="mmHg"
+                placeholder="120"
               />
             </label>
 
             <label>
-              Diastolic BP
+              <span>
+                Diastolic BP
+              </span>
 
               <input
                 type="number"
@@ -523,18 +604,19 @@ export default function NewAssessment() {
                   form.diastolic_bp
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    diastolic_bp:
-                      event.target.value,
-                  })
+                  updateField(
+                    'diastolic_bp',
+                    event.target.value
+                  )
                 }
-                placeholder="mmHg"
+                placeholder="80"
               />
             </label>
 
             <label>
-              Resting heart rate
+              <span>
+                Resting Heart Rate
+              </span>
 
               <input
                 type="number"
@@ -542,174 +624,157 @@ export default function NewAssessment() {
                   form.resting_hr
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    resting_hr:
-                      event.target.value,
-                  })
+                  updateField(
+                    'resting_hr',
+                    event.target.value
+                  )
                 }
-                placeholder="bpm"
+                placeholder="70"
               />
             </label>
 
             <label>
-              Screening status
+              <span>
+                Height (cm)
+              </span>
+
+              <input
+                type="number"
+                step="0.1"
+                value={
+                  form.height_cm
+                }
+                onChange={(event) =>
+                  updateField(
+                    'height_cm',
+                    event.target.value
+                  )
+                }
+                placeholder="175"
+              />
+            </label>
+
+            <label>
+              <span>
+                Weight (kg)
+              </span>
+
+              <input
+                type="number"
+                step="0.1"
+                value={
+                  form.weight_kg
+                }
+                onChange={(event) =>
+                  updateField(
+                    'weight_kg',
+                    event.target.value
+                  )
+                }
+                placeholder="75"
+              />
+            </label>
+
+          </div>
+
+          <div className="form-grid">
+
+            <label>
+              <span>
+                Calculated BMI
+              </span>
+
+              <input
+                type="text"
+                value={
+                  bmi !== null
+                    ? bmi
+                    : ''
+                }
+                placeholder="Calculated automatically"
+                disabled
+              />
+            </label>
+
+            <label>
+              <span>
+                Pre-Test Status
+              </span>
 
               <select
                 value={
                   form.pre_test_status
                 }
                 onChange={(event) =>
-                  setForm({
-                    ...form,
-                    pre_test_status:
-                      event.target.value,
-                  })
+                  updateField(
+                    'pre_test_status',
+                    event.target.value
+                  )
                 }
               >
                 <option value="cleared">
-                  Cleared for testing
+                  Cleared for Testing
                 </option>
 
-                <option value="modified">
-                  Proceed with
-                  modifications
+                <option value="cleared_with_caution">
+                  Cleared with Caution
                 </option>
 
                 <option value="deferred">
-                  Testing deferred
+                  Testing Deferred
+                </option>
+
+                <option value="medical_review_required">
+                  Medical Review Required
                 </option>
               </select>
             </label>
 
           </div>
-        </section>
 
-        <section className="panel assessment-section">
+        </div>
+
+        {/* START */}
+
+        <div className="panel">
+
           <div className="assessment-section-title">
-            <div className="profile-card-icon">
-              <Ruler size={20} />
+
+            <div className="assessment-section-icon">
+              <Activity size={20} />
             </div>
 
             <div>
               <h3>
-                Anthropometrics
+                Functional Testing
               </h3>
 
               <p>
-                Record basic physical
-                measurements.
+                Saving this assessment will
+                permanently record the
+                logged-in professional as
+                the assessor.
               </p>
             </div>
-          </div>
-
-          <div className="form-grid">
-
-            <label>
-              Height
-
-              <div className="input-unit">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={
-                    form.height_cm
-                  }
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      height_cm:
-                        event.target.value,
-                    })
-                  }
-                />
-
-                <span>cm</span>
-              </div>
-            </label>
-
-            <label>
-              Weight
-
-              <div className="input-unit">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={
-                    form.weight_kg
-                  }
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      weight_kg:
-                        event.target.value,
-                    })
-                  }
-                />
-
-                <span>kg</span>
-              </div>
-            </label>
-
-            <div className="bmi-card">
-              <span>
-                Calculated BMI
-              </span>
-
-              <strong>
-                {bmi
-                  ? bmi.toFixed(1)
-                  : '—'}
-              </strong>
-            </div>
 
           </div>
-        </section>
-
-        <div className="assessment-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() =>
-              navigate(
-                `/workers/${worker.id}`
-              )
-            }
-          >
-            <ArrowLeft size={16} />
-            Cancel
-          </button>
 
           <button
+            type="submit"
             className="primary-button"
-            disabled={
-              saving ||
-              form.pre_test_status ===
-                'deferred'
-            }
+            disabled={saving}
           >
-            {saving ? (
-              <>
-                <Save size={16} />
-                Saving...
-              </>
-            ) : (
-              <>
-                <CheckCircle2
-                  size={16}
-                />
+            <Save size={16} />
 
-                Save & Start Testing
-
-                <ArrowRight
-                  size={16}
-                />
-              </>
-            )}
+            {saving
+              ? 'Creating Assessment...'
+              : 'Save & Start FCE'}
           </button>
+
         </div>
 
       </form>
+
     </div>
   )
 }
