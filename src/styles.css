@@ -1262,3 +1262,842 @@ th { color:#667085; font-size:12px; background:#fcfcfd; }
   }
 
 }
+/* =========================================================
+   SPINESYNC ENTERPRISE
+   PROFESSIONAL FCE REPORT
+   ========================================================= */
+
+.fce-report-document {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.report-screen-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.fce-print-page {
+  background: #ffffff;
+  color: #172033;
+  margin: 0 auto 28px;
+  padding: 38px 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+}
+
+
+/* =========================================================
+   REPORT HEADER
+   ========================================================= */
+
+.fce-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 30px;
+  border-bottom: 2px solid #1d4ed8;
+  padding-bottom: 18px;
+  margin-bottom: 26px;
+}
+
+.fce-report-header.compact {
+  align-items: center;
+}
+
+.fce-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fce-brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1d4ed8;
+  color: white;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.fce-brand > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fce-brand strong {
+  font-size: 17px;
+  color: #0f172a;
+}
+
+.fce-brand span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.fce-report-meta {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 20px;
+}
+
+.fce-report-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fce-report-meta span,
+.fce-worker-mini span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.fce-report-meta strong {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.fce-worker-mini {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+  gap: 3px;
+}
+
+
+/* =========================================================
+   REPORT TITLE
+   ========================================================= */
+
+.fce-report-title {
+  margin-bottom: 26px;
+}
+
+.fce-report-title > span {
+  display: inline-block;
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-bottom: 7px;
+}
+
+.fce-report-title h1 {
+  margin: 0;
+  font-size: 29px;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.fce-report-title p {
+  margin: 9px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+
+/* =========================================================
+   REPORT SECTIONS
+   ========================================================= */
+
+.fce-report-section {
+  border: 1px solid #dfe7f1;
+  border-radius: 10px;
+  margin-bottom: 17px;
+  overflow: hidden;
+}
+
+.fce-report-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 16px;
+  background: #f6f9fd;
+  border-bottom: 1px solid #e2e8f0;
+  color: #1d4ed8;
+}
+
+.fce-report-section-heading > div {
+  flex: 1;
+}
+
+.fce-report-section-heading h2 {
+  margin: 0;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.fce-report-section-heading p {
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: #64748b;
+}
+
+
+/* =========================================================
+   INFORMATION TABLE
+   ========================================================= */
+
+.fce-info-table {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.fce-info-table > div {
+  display: flex;
+  flex-direction: column;
+  min-height: 58px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.fce-info-table > div:nth-child(odd) {
+  border-right: 1px solid #edf2f7;
+}
+
+.fce-info-table > div:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+
+.fce-info-table span,
+.fce-full-row span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.fce-info-table strong,
+.fce-full-row strong {
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fce-full-row {
+  display: flex;
+  flex-direction: column;
+  padding: 11px 16px;
+  border-top: 1px solid #edf2f7;
+}
+
+
+/* =========================================================
+   CLINICAL VITALS
+   ========================================================= */
+
+.fce-vital-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  padding: 14px;
+  gap: 8px;
+}
+
+.fce-vital-grid > div {
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.fce-vital-grid span {
+  font-size: 8px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.06em;
+}
+
+.fce-vital-grid strong {
+  font-size: 18px;
+  line-height: 1.1;
+  margin: 5px 0 2px;
+  color: #0f172a;
+}
+
+.fce-vital-grid small {
+  font-size: 9px;
+  color: #64748b;
+}
+
+
+/* =========================================================
+   FINAL OUTCOME
+   ========================================================= */
+
+.fce-decision-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 19px 21px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  margin-top: 18px;
+}
+
+.fce-decision-card span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.fce-decision-card h2 {
+  margin: 5px 0 0;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+
+/* =========================================================
+   SUMMARY
+   ========================================================= */
+
+.fce-summary-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 14px;
+}
+
+.fce-summary-row > div {
+  text-align: center;
+  padding: 12px 6px;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.fce-summary-row span {
+  display: block;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 5px;
+}
+
+.fce-summary-row strong {
+  font-size: 21px;
+  color: #0f172a;
+}
+
+
+/* =========================================================
+   FCE RESULTS TABLE
+   ========================================================= */
+
+.fce-report-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.fce-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.fce-report-table thead {
+  background: #eef4fb;
+}
+
+.fce-report-table th {
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 8px;
+  color: #475569;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #dbe4ef;
+}
+
+.fce-report-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #edf2f7;
+  vertical-align: middle;
+  color: #334155;
+}
+
+.fce-report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.fce-report-table td:first-child strong {
+  display: block;
+  color: #0f172a;
+  font-size: 10px;
+}
+
+.fce-report-table td:first-child small {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+}
+
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.fce-report-document .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fce-report-document .badge.pass {
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+}
+
+.fce-report-document .badge.borderline {
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
+
+.fce-report-document .badge.fail {
+  color: #991b1b;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+}
+
+.fce-report-document .badge.not_tested {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+
+/* =========================================================
+   CAPACITY GAP
+   ========================================================= */
+
+.fce-no-gap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px 16px;
+  color: #166534;
+  font-size: 11px;
+}
+
+.fce-gap-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  padding: 13px;
+}
+
+.fce-gap-list > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 11px;
+  border: 1px solid #fed7aa;
+  background: #fffaf5;
+  border-radius: 8px;
+}
+
+.fce-gap-list strong {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: #0f172a;
+}
+
+.fce-gap-list span {
+  font-size: 9px;
+  color: #64748b;
+}
+
+
+/* =========================================================
+   CLINICAL DECISION
+   ========================================================= */
+
+.fce-final-outcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 15px;
+  padding: 12px 14px;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+}
+
+.fce-final-outcome > span {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.fce-clinical-text {
+  margin: 0 15px;
+  padding: 12px 0;
+  border-top: 1px solid #edf2f7;
+}
+
+.fce-clinical-text span {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: #64748b;
+  margin-bottom: 5px;
+}
+
+.fce-clinical-text p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #334155;
+}
+
+
+/* =========================================================
+   DECLARATION
+   ========================================================= */
+
+.fce-declaration {
+  margin-top: 17px;
+  padding: 17px;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+}
+
+.fce-declaration h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.fce-declaration p {
+  font-size: 9px;
+  line-height: 1.5;
+  color: #64748b;
+  margin: 6px 0;
+}
+
+.fce-signature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 30px;
+  margin-top: 20px;
+}
+
+.fce-signature-grid > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.fce-signature-grid span {
+  font-size: 8px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 11px;
+}
+
+.fce-signature-grid strong {
+  font-size: 10px;
+  color: #334155;
+}
+
+
+/* =========================================================
+   PAGE FOOTER
+   ========================================================= */
+
+.fce-page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #dbe4ef;
+  margin-top: 20px;
+  padding-top: 9px;
+  color: #94a3b8;
+  font-size: 8px;
+}
+
+
+/* =========================================================
+   RESPONSIVE SCREEN
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+  .fce-report-document {
+    padding: 12px;
+  }
+
+  .fce-print-page {
+    padding: 22px;
+  }
+
+  .fce-report-header {
+    flex-direction: column;
+  }
+
+  .fce-report-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .fce-info-table {
+    grid-template-columns: 1fr;
+  }
+
+  .fce-info-table > div:nth-child(odd) {
+    border-right: none;
+  }
+
+  .fce-vital-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fce-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fce-gap-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* =========================================================
+   PRINT — TRUE A4 REPORT
+   ========================================================= */
+
+@media print {
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /*
+    Hide the entire web application.
+    Only the FCE report remains visible.
+  */
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .fce-report-document,
+  .fce-report-document * {
+    visibility: visible !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .fce-report-document {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  .fce-print-page {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    box-sizing: border-box !important;
+
+    margin: 0 !important;
+    padding:
+      13mm 14mm 12mm 14mm !important;
+
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+
+    overflow: hidden !important;
+
+    break-after: page !important;
+    page-break-after: always !important;
+
+    position: relative !important;
+  }
+
+  .fce-print-page:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  /*
+    Keep important report elements
+    together.
+  */
+
+  .fce-report-section,
+  .fce-decision-card,
+  .fce-declaration,
+  .fce-summary-row,
+  .fce-gap-list {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .fce-report-header {
+    margin-bottom: 5mm !important;
+    padding-bottom: 4mm !important;
+  }
+
+  .fce-report-title {
+    margin-bottom: 5mm !important;
+  }
+
+  .fce-report-title h1 {
+    font-size: 21pt !important;
+  }
+
+  .fce-report-section {
+    margin-bottom: 3.5mm !important;
+  }
+
+  .fce-report-section-heading {
+    padding: 2.4mm 3mm !important;
+  }
+
+  .fce-info-table > div {
+    min-height: 11mm !important;
+    padding: 2.2mm 3mm !important;
+  }
+
+  .fce-full-row {
+    padding: 2.2mm 3mm !important;
+  }
+
+  .fce-vital-grid {
+    padding: 2.5mm !important;
+    gap: 1.7mm !important;
+  }
+
+  .fce-vital-grid > div {
+    min-height: 15mm !important;
+  }
+
+  .fce-vital-grid strong {
+    font-size: 13pt !important;
+  }
+
+  .fce-summary-row {
+    padding: 2.5mm !important;
+    gap: 1.5mm !important;
+  }
+
+  .fce-summary-row > div {
+    padding: 2mm !important;
+  }
+
+  .fce-summary-row strong {
+    font-size: 15pt !important;
+  }
+
+  .fce-report-table {
+    font-size: 7.5pt !important;
+  }
+
+  .fce-report-table th {
+    font-size: 6.5pt !important;
+    padding: 1.6mm !important;
+  }
+
+  .fce-report-table td {
+    padding: 1.6mm !important;
+  }
+
+  .fce-report-table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .fce-report-table thead {
+    display: table-header-group !important;
+  }
+
+  .fce-gap-list {
+    padding: 2mm !important;
+    gap: 1.5mm !important;
+  }
+
+  .fce-gap-list > div {
+    padding: 2mm !important;
+  }
+
+  .fce-declaration {
+    margin-top: 3mm !important;
+    padding: 3mm !important;
+  }
+
+  .fce-declaration p {
+    font-size: 7.2pt !important;
+  }
+
+  .fce-signature-grid {
+    margin-top: 3mm !important;
+    gap: 3mm 7mm !important;
+  }
+
+  /*
+    Keep our own footer near
+    the bottom of each page.
+  */
+
+  .fce-page-footer {
+    position: absolute !important;
+    left: 14mm !important;
+    right: 14mm !important;
+    bottom: 7mm !important;
+    margin: 0 !important;
+  }
+
+  /*
+    Don't print browser link URLs.
+  */
+
+  a[href]::after {
+    content: none !important;
+  }
+
+}
