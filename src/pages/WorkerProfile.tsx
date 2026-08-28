@@ -2,7 +2,9 @@ import {
   Activity,
   ArrowLeft,
   BriefcaseBusiness,
+  CalendarDays,
   ClipboardList,
+  Eye,
   MapPin,
   ShieldCheck,
   User,
@@ -42,6 +44,15 @@ type Option = {
   title?: string
 }
 
+type Assessment = {
+  id: string
+  assessment_type: string
+  assessment_date: string
+  assessment_status: string
+  final_outcome: string | null
+  created_at: string
+}
+
 export default function WorkerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -60,6 +71,9 @@ export default function WorkerProfile() {
 
   const [job, setJob] =
     useState<Option | null>(null)
+
+  const [assessments, setAssessments] =
+    useState<Assessment[]>([])
 
   const [loading, setLoading] =
     useState(true)
@@ -105,13 +119,15 @@ export default function WorkerProfile() {
       return
     }
 
-    setWorker(
+    const workerData =
       data as WorkerProfileData
-    )
 
-    await loadLinkedData(
-      data as WorkerProfileData
-    )
+    setWorker(workerData)
+
+    await Promise.all([
+      loadLinkedData(workerData),
+      loadAssessments(workerData.id),
+    ])
 
     setLoading(false)
   }
@@ -199,6 +215,45 @@ export default function WorkerProfile() {
     )
   }
 
+  async function loadAssessments(
+    workerId: string
+  ) {
+    const {
+      data,
+      error: assessmentError,
+    } = await supabase
+      .from('assessments')
+      .select(`
+        id,
+        assessment_type,
+        assessment_date,
+        assessment_status,
+        final_outcome,
+        created_at
+      `)
+      .eq(
+        'worker_id',
+        workerId
+      )
+      .order(
+        'assessment_date',
+        {
+          ascending: false,
+        }
+      )
+
+    if (assessmentError) {
+      setError(
+        assessmentError.message
+      )
+      return
+    }
+
+    setAssessments(
+      (data ?? []) as Assessment[]
+    )
+  }
+
   function formatStatus(
     value: string
   ) {
@@ -210,6 +265,23 @@ export default function WorkerProfile() {
         (letter: string) =>
           letter.toUpperCase()
       )
+  }
+
+  function formatDate(
+    value: string
+  ) {
+    if (!value) return '—'
+
+    return new Date(
+      `${value}T00:00:00`
+    ).toLocaleDateString(
+      'en-ZA',
+      {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }
+    )
   }
 
   if (loading) {
@@ -246,6 +318,7 @@ export default function WorkerProfile() {
 
   return (
     <div className="stack">
+
       <div className="section-heading">
         <div>
           <Link
@@ -292,6 +365,7 @@ export default function WorkerProfile() {
           </h3>
 
           <div className="profile-details">
+
             <div>
               <span>
                 Employee number
@@ -310,8 +384,11 @@ export default function WorkerProfile() {
               </span>
 
               <strong>
-                {worker.date_of_birth ||
-                  'Not recorded'}
+                {worker.date_of_birth
+                  ? formatDate(
+                      worker.date_of_birth
+                    )
+                  : 'Not recorded'}
               </strong>
             </div>
 
@@ -328,6 +405,7 @@ export default function WorkerProfile() {
                   : 'Not recorded'}
               </strong>
             </div>
+
           </div>
         </section>
 
@@ -341,6 +419,7 @@ export default function WorkerProfile() {
           </h3>
 
           <div className="profile-details">
+
             <div>
               <span>
                 Operation
@@ -373,6 +452,7 @@ export default function WorkerProfile() {
                   'Not assigned'}
               </strong>
             </div>
+
           </div>
         </section>
 
@@ -411,6 +491,7 @@ export default function WorkerProfile() {
           </h3>
 
           <div className="profile-details">
+
             <div>
               <span>
                 Employment
@@ -434,11 +515,14 @@ export default function WorkerProfile() {
                 )}
               </strong>
             </div>
+
           </div>
         </section>
+
       </div>
 
       <section className="panel">
+
         <div className="panel-header">
           <div>
             <h3>
@@ -446,7 +530,8 @@ export default function WorkerProfile() {
             </h3>
 
             <span>
-              FCE and MSK assessments
+              FCE and functional
+              assessment records
             </span>
           </div>
 
@@ -455,31 +540,161 @@ export default function WorkerProfile() {
           />
         </div>
 
-        <div className="empty-state">
-          <Activity size={32} />
+        {assessments.length === 0 ? (
+          <div className="empty-state">
+            <Activity size={32} />
 
-          <h3>
-            No assessments yet
-          </h3>
+            <h3>
+              No assessments yet
+            </h3>
 
-          <p>
-            Start the worker's first
-            functional capacity
-            evaluation.
-          </p>
+            <p>
+              Start the worker's first
+              functional capacity
+              evaluation.
+            </p>
 
-          <button
-            className="primary-button"
-            onClick={() =>
-              navigate(
-                `/assessments/new?worker=${worker.id}`
-              )
-            }
-          >
-            Start FCE
-          </button>
-        </div>
+            <button
+              className="primary-button"
+              onClick={() =>
+                navigate(
+                  `/assessments/new?worker=${worker.id}`
+                )
+              }
+            >
+              Start FCE
+            </button>
+          </div>
+        ) : (
+          <div className="table-wrap">
+
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    Date
+                  </th>
+
+                  <th>
+                    Assessment
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                  <th>
+                    Outcome
+                  </th>
+
+                  <th>
+                    Action
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {assessments.map(
+                  (assessment) => (
+                    <tr
+                      key={
+                        assessment.id
+                      }
+                    >
+                      <td>
+                        <div className="assessment-date-cell">
+                          <CalendarDays
+                            size={15}
+                          />
+
+                          {formatDate(
+                            assessment.assessment_date
+                          )}
+                        </div>
+                      </td>
+
+                      <td>
+                        <strong>
+                          {formatStatus(
+                            assessment.assessment_type
+                          )}
+                        </strong>
+                      </td>
+
+                      <td>
+                        <span
+                          className={`badge ${
+                            assessment.assessment_status ===
+                            'completed'
+                              ? 'pass'
+                              : 'borderline'
+                          }`}
+                        >
+                          {formatStatus(
+                            assessment.assessment_status
+                          )}
+                        </span>
+                      </td>
+
+                      <td>
+                        {assessment.final_outcome ? (
+                          <span
+                            className={`badge ${
+                              assessment.final_outcome ===
+                              'fit'
+                                ? 'pass'
+                                : assessment.final_outcome ===
+                                    'temporarily_unfit'
+                                  ? 'fail'
+                                  : 'borderline'
+                            }`}
+                          >
+                            {formatStatus(
+                              assessment.final_outcome
+                            )}
+                          </span>
+                        ) : (
+                          'Pending'
+                        )}
+                      </td>
+
+                      <td>
+                        <button
+                          className="secondary-button"
+                          onClick={() => {
+                            if (
+                              assessment.assessment_status ===
+                              'completed'
+                            ) {
+                              navigate(
+                                `/assessments/${assessment.id}/outcome`
+                              )
+                            } else {
+                              navigate(
+                                `/assessments/${assessment.id}`
+                              )
+                            }
+                          }}
+                        >
+                          <Eye size={15} />
+
+                          {assessment.assessment_status ===
+                          'completed'
+                            ? 'View FCE'
+                            : 'Continue'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+
+          </div>
+        )}
+
       </section>
+
     </div>
   )
 }
