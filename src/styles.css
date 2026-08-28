@@ -887,3 +887,378 @@ th { color:#667085; font-size:12px; background:#fcfcfd; }
   font-size: 13px;
   line-height: 1.5;
 }
+/* =========================================
+   SPINESYNC FCE REPORT
+   ========================================= */
+
+.fce-report {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.report-title-block {
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.report-title-block h1 {
+  margin: 8px 0;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.report-title-block p {
+  margin: 0;
+  opacity: 0.7;
+}
+
+.report-reference {
+  min-width: 220px;
+  display: grid;
+  gap: 5px;
+}
+
+.report-reference span {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.55;
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+}
+
+.report-reference strong {
+  font-size: 14px;
+}
+
+.record-details-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.record-details-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.record-details-grid span,
+.record-text-block > span,
+.record-outcome > span:first-child {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.record-details-grid strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.record-vitals-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.record-vitals-grid > div {
+  padding: 16px;
+  border: 1px solid
+    rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.record-vitals-grid span {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.record-vitals-grid strong {
+  font-size: 17px;
+}
+
+.record-text-block {
+  margin-top: 20px;
+}
+
+.record-text-block p {
+  margin: 7px 0 0;
+  line-height: 1.65;
+}
+
+.record-outcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid
+    rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+}
+
+.report-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 11px;
+  opacity: 0.6;
+  padding: 8px 4px 24px;
+}
+
+.test-category {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .report-title-block {
+    flex-direction: column;
+  }
+
+  .record-vitals-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .record-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-footer {
+    flex-direction: column;
+  }
+}
+
+
+/* =========================================
+   A4 PRINT / PDF REPORT
+   ========================================= */
+
+@media print {
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+
+  body {
+    background: white !important;
+    color: #111827 !important;
+    font-size: 10pt;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /*
+   Hide the application navigation
+   when printing.
+  */
+
+  aside,
+  nav,
+  .sidebar,
+  .app-sidebar {
+    display: none !important;
+  }
+
+  /*
+   Remove application layout spacing.
+  */
+
+  main,
+  .main-content,
+  .app-content,
+  .content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .fce-report {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /*
+   Report cards become clean document
+   sections rather than app cards.
+  */
+
+  .fce-report .panel {
+    background: white !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 5px !important;
+    margin-bottom: 8mm;
+    padding: 6mm !important;
+
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /*
+   Main report title.
+  */
+
+  .report-title-block {
+    align-items: flex-start;
+  }
+
+  .report-title-block h1 {
+    font-size: 22pt;
+    color: #111827 !important;
+  }
+
+  .report-title-block p {
+    color: #4b5563 !important;
+  }
+
+  .eyebrow {
+    color: #2563eb !important;
+    font-weight: 800;
+  }
+
+  /*
+   Section headings.
+  */
+
+  .assessment-section-title {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .assessment-section-title h3 {
+    color: #111827 !important;
+    margin-bottom: 2px;
+  }
+
+  .assessment-section-title p {
+    color: #6b7280 !important;
+  }
+
+  /*
+   Tables.
+  */
+
+  .table-wrap {
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #f3f4f6 !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db;
+    padding: 6px !important;
+    text-align: left;
+  }
+
+  td {
+    color: #111827 !important;
+    border: 1px solid #e5e7eb;
+    padding: 6px !important;
+  }
+
+  /*
+   Summary cards.
+  */
+
+  .fce-summary-grid {
+    gap: 8px !important;
+  }
+
+  .worker-summary-card {
+    background: white !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+  }
+
+  /*
+   Vital signs.
+  */
+
+  .record-vitals-grid {
+    grid-template-columns:
+      repeat(3, 1fr) !important;
+  }
+
+  .record-vitals-grid > div {
+    background: white !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+  }
+
+  /*
+   Status badges.
+  */
+
+  .badge {
+    border: 1px solid #9ca3af !important;
+    background: transparent !important;
+    color: #111827 !important;
+  }
+
+  .badge.pass {
+    border-color: #15803d !important;
+  }
+
+  .badge.borderline {
+    border-color: #ca8a04 !important;
+  }
+
+  .badge.fail {
+    border-color: #b91c1c !important;
+  }
+
+  /*
+   Report footer.
+  */
+
+  .report-footer {
+    color: #4b5563 !important;
+    border-top: 1px solid #d1d5db;
+    padding-top: 8px;
+  }
+
+  /*
+   Prevent unnecessary URLs being
+   printed after links.
+  */
+
+  a[href]::after {
+    content: none !important;
+  }
+
+}
