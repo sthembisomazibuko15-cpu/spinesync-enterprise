@@ -1,10 +1,12 @@
 import {
   Activity,
   ArrowLeft,
+  BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   HeartPulse,
+  MapPin,
   Printer,
   ShieldCheck,
   TrendingDown,
@@ -42,6 +44,7 @@ type Assessment = {
   final_outcome: string | null
   restrictions: string | null
   recommendations: string | null
+  assessor_id: string | null
 }
 
 type Worker = {
@@ -49,6 +52,14 @@ type Worker = {
   employee_number: string
   first_name: string
   last_name: string
+  date_of_birth: string | null
+  sex: string | null
+  employment_status: string | null
+  fitness_status: string | null
+  operation_id: string | null
+  site_id: string | null
+  department_id: string | null
+  job_profile_id: string | null
 }
 
 type Result = {
@@ -65,6 +76,12 @@ type Result = {
   notes: string | null
 }
 
+type NamedItem = {
+  id: string
+  name?: string
+  title?: string
+}
+
 export default function FceRecord() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -78,6 +95,18 @@ export default function FceRecord() {
   const [results, setResults] =
     useState<Result[]>([])
 
+  const [operation, setOperation] =
+    useState<NamedItem | null>(null)
+
+  const [site, setSite] =
+    useState<NamedItem | null>(null)
+
+  const [department, setDepartment] =
+    useState<NamedItem | null>(null)
+
+  const [job, setJob] =
+    useState<NamedItem | null>(null)
+
   const [loading, setLoading] =
     useState(true)
 
@@ -85,14 +114,12 @@ export default function FceRecord() {
     useState<string | null>(null)
 
   useEffect(() => {
-    loadRecord()
+    loadReport()
   }, [id])
 
-  async function loadRecord() {
+  async function loadReport() {
     if (!id) {
-      setError(
-        'Assessment not found.'
-      )
+      setError('Assessment not found.')
       setLoading(false)
       return
     }
@@ -122,15 +149,14 @@ export default function FceRecord() {
         assessment_status,
         final_outcome,
         restrictions,
-        recommendations
+        recommendations,
+        assessor_id
       `)
       .eq('id', id)
       .single()
 
     if (assessmentError) {
-      setError(
-        assessmentError.message
-      )
+      setError(assessmentError.message)
       setLoading(false)
       return
     }
@@ -138,28 +164,51 @@ export default function FceRecord() {
     const typedAssessment =
       assessmentData as Assessment
 
-    setAssessment(
-      typedAssessment
-    )
+    setAssessment(typedAssessment)
+
+    const {
+      data: workerData,
+      error: workerError,
+    } = await supabase
+      .from('workers')
+      .select(`
+        id,
+        employee_number,
+        first_name,
+        last_name,
+        date_of_birth,
+        sex,
+        employment_status,
+        fitness_status,
+        operation_id,
+        site_id,
+        department_id,
+        job_profile_id
+      `)
+      .eq(
+        'id',
+        typedAssessment.worker_id
+      )
+      .single()
+
+    if (workerError) {
+      setError(workerError.message)
+      setLoading(false)
+      return
+    }
+
+    const typedWorker =
+      workerData as Worker
+
+    setWorker(typedWorker)
 
     const [
-      workerResult,
-      resultsResult,
+      resultsResponse,
+      operationResponse,
+      siteResponse,
+      departmentResponse,
+      jobResponse,
     ] = await Promise.all([
-      supabase
-        .from('workers')
-        .select(`
-          id,
-          employee_number,
-          first_name,
-          last_name
-        `)
-        .eq(
-          'id',
-          typedAssessment.worker_id
-        )
-        .single(),
-
       supabase
         .from('fce_results')
         .select(`
@@ -180,31 +229,91 @@ export default function FceRecord() {
           typedAssessment.id
         )
         .order('test_category'),
+
+      typedWorker.operation_id
+        ? supabase
+            .from('operations')
+            .select('id,name')
+            .eq(
+              'id',
+              typedWorker.operation_id
+            )
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null,
+          }),
+
+      typedWorker.site_id
+        ? supabase
+            .from('sites')
+            .select('id,name')
+            .eq(
+              'id',
+              typedWorker.site_id
+            )
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null,
+          }),
+
+      typedWorker.department_id
+        ? supabase
+            .from('departments')
+            .select('id,name')
+            .eq(
+              'id',
+              typedWorker.department_id
+            )
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null,
+          }),
+
+      typedWorker.job_profile_id
+        ? supabase
+            .from('job_profiles')
+            .select('id,title')
+            .eq(
+              'id',
+              typedWorker.job_profile_id
+            )
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null,
+          }),
     ])
 
-    if (workerResult.error) {
+    if (resultsResponse.error) {
       setError(
-        workerResult.error.message
+        resultsResponse.error.message
       )
       setLoading(false)
       return
     }
-
-    if (resultsResult.error) {
-      setError(
-        resultsResult.error.message
-      )
-      setLoading(false)
-      return
-    }
-
-    setWorker(
-      workerResult.data as Worker
-    )
 
     setResults(
-      (resultsResult.data ??
+      (resultsResponse.data ??
         []) as Result[]
+    )
+
+    setOperation(
+      operationResponse.data
+    )
+
+    setSite(
+      siteResponse.data
+    )
+
+    setDepartment(
+      departmentResponse.data
+    )
+
+    setJob(
+      jobResponse.data
     )
 
     setLoading(false)
@@ -215,8 +324,7 @@ export default function FceRecord() {
       results.filter(
         (item) =>
           item.result &&
-          item.result !==
-            'not_tested'
+          item.result !== 'not_tested'
       )
 
     const passed =
@@ -228,8 +336,7 @@ export default function FceRecord() {
     const borderline =
       tested.filter(
         (item) =>
-          item.result ===
-          'borderline'
+          item.result === 'borderline'
       ).length
 
     const failed =
@@ -238,29 +345,30 @@ export default function FceRecord() {
           item.result === 'fail'
       ).length
 
-    const gaps =
+    const capacityGaps =
       results.filter(
         (item) =>
-          item.measured_value !==
-            null &&
-          item.required_value !==
-            null &&
-          item.required_value > 0 &&
-          item.measured_value <
-            item.required_value
-      ).length
+          item.measured_value !== null &&
+          item.required_value !== null &&
+          Number(item.required_value) > 0 &&
+          Number(item.measured_value) <
+            Number(item.required_value)
+      )
 
     return {
+      tested: tested.length,
       passed,
       borderline,
       failed,
-      gaps,
+      capacityGaps,
     }
   }, [results])
 
   function formatStatus(
-    value: string
+    value: string | null | undefined
   ) {
+    if (!value) return 'Not recorded'
+
     return value
       .split('_')
       .join(' ')
@@ -272,8 +380,10 @@ export default function FceRecord() {
   }
 
   function formatDate(
-    value: string
+    value: string | null
   ) {
+    if (!value) return 'Not recorded'
+
     return new Date(
       `${value}T00:00:00`
     ).toLocaleDateString(
@@ -286,17 +396,33 @@ export default function FceRecord() {
     )
   }
 
-  function outcomeBadge(
-    value: string | null
+  function getResultClass(
+    result: string | null
   ) {
-    if (!value)
-      return 'not_tested'
-
-    if (value === 'fit')
+    if (result === 'pass') {
       return 'pass'
+    }
+
+    if (result === 'fail') {
+      return 'fail'
+    }
+
+    if (result === 'borderline') {
+      return 'borderline'
+    }
+
+    return 'not_tested'
+  }
+
+  function getOutcomeClass(
+    outcome: string | null
+  ) {
+    if (outcome === 'fit') {
+      return 'pass'
+    }
 
     if (
-      value ===
+      outcome ===
       'temporarily_unfit'
     ) {
       return 'fail'
@@ -305,13 +431,21 @@ export default function FceRecord() {
     return 'borderline'
   }
 
+  function reportReference() {
+    if (!assessment) return ''
+
+    return `FCE-${assessment.id
+      .slice(0, 8)
+      .toUpperCase()}`
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">
         <div className="loading-spinner" />
 
         <p>
-          Loading FCE record...
+          Preparing FCE report...
         </p>
       </div>
     )
@@ -326,7 +460,7 @@ export default function FceRecord() {
       <div className="stack">
         <div className="error-message">
           {error ||
-            'Assessment not found.'}
+            'Assessment record not found.'}
         </div>
 
         <button
@@ -342,9 +476,9 @@ export default function FceRecord() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack fce-report">
 
-      <div className="section-heading">
+      <div className="section-heading no-print">
         <div>
           <button
             className="back-link button-reset"
@@ -358,73 +492,265 @@ export default function FceRecord() {
             Worker profile
           </button>
 
-          <span className="eyebrow">
-            FCE RECORD
-          </span>
-
           <h2>
-            Functional Capacity
-            Evaluation
+            FCE Report
           </h2>
 
           <p>
-            {worker.first_name}{' '}
-            {worker.last_name}
-            {' • '}
-            {worker.employee_number}
+            Review or print the completed
+            assessment.
           </p>
         </div>
 
         <button
-          className="secondary-button"
+          className="primary-button"
           onClick={() =>
             window.print()
           }
         >
           <Printer size={16} />
-          Print
+          Print / Save PDF
         </button>
       </div>
 
       <section className="panel assessment-section">
-        <div className="record-header-grid">
+
+        <div className="report-title-block">
 
           <div>
-            <span className="small-label">
-              WORKER
+            <span className="eyebrow">
+              SPINESYNC ENTERPRISE
             </span>
 
-            <strong>
-              {worker.first_name}{' '}
-              {worker.last_name}
-            </strong>
+            <h1>
+              Functional Capacity
+              Evaluation Report
+            </h1>
 
             <p>
-              {
-                worker.employee_number
-              }
+              Occupational functional
+              capacity and job-demand
+              comparison
             </p>
           </div>
 
-          <div>
-            <span className="small-label">
+          <div className="report-reference">
+            <span>
+              REPORT REFERENCE
+            </span>
+
+            <strong>
+              {reportReference()}
+            </strong>
+
+            <span>
               ASSESSMENT DATE
             </span>
 
             <strong>
-              <CalendarDays
-                size={15}
-              />
-
               {formatDate(
                 assessment.assessment_date
               )}
             </strong>
           </div>
 
+        </div>
+
+      </section>
+
+      <section className="panel assessment-section">
+
+        <div className="assessment-section-title">
+          <div className="profile-card-icon">
+            <User size={20} />
+          </div>
+
           <div>
-            <span className="small-label">
-              ASSESSMENT TYPE
+            <h3>
+              Worker Identification
+            </h3>
+
+            <p>
+              Worker and employment
+              information.
+            </p>
+          </div>
+        </div>
+
+        <div className="record-details-grid">
+
+          <div>
+            <span>
+              Worker name
+            </span>
+
+            <strong>
+              {worker.first_name}{' '}
+              {worker.last_name}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Employee number
+            </span>
+
+            <strong>
+              {worker.employee_number}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Date of birth
+            </span>
+
+            <strong>
+              {formatDate(
+                worker.date_of_birth
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Sex
+            </span>
+
+            <strong>
+              {formatStatus(
+                worker.sex
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Employment status
+            </span>
+
+            <strong>
+              {formatStatus(
+                worker.employment_status
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Current fitness status
+            </span>
+
+            <strong>
+              {formatStatus(
+                worker.fitness_status
+              )}
+            </strong>
+          </div>
+
+        </div>
+
+      </section>
+
+      <section className="panel assessment-section">
+
+        <div className="assessment-section-title">
+          <div className="profile-card-icon">
+            <MapPin size={20} />
+          </div>
+
+          <div>
+            <h3>
+              Mining Placement
+            </h3>
+
+            <p>
+              Worksite and job
+              allocation.
+            </p>
+          </div>
+        </div>
+
+        <div className="record-details-grid">
+
+          <div>
+            <span>
+              Mining operation
+            </span>
+
+            <strong>
+              {operation?.name ||
+                'Not assigned'}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Site / Shaft
+            </span>
+
+            <strong>
+              {site?.name ||
+                'Not assigned'}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Department
+            </span>
+
+            <strong>
+              {department?.name ||
+                'Not assigned'}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Job profile
+            </span>
+
+            <strong>
+              <BriefcaseBusiness
+                size={15}
+              />
+
+              {job?.title ||
+                'Not assigned'}
+            </strong>
+          </div>
+
+        </div>
+
+      </section>
+
+      <section className="panel assessment-section">
+
+        <div className="assessment-section-title">
+          <div className="profile-card-icon">
+            <CalendarDays
+              size={20}
+            />
+          </div>
+
+          <div>
+            <h3>
+              Assessment Information
+            </h3>
+
+            <p>
+              FCE referral and assessment
+              status.
+            </p>
+          </div>
+        </div>
+
+        <div className="record-details-grid">
+
+          <div>
+            <span>
+              Assessment type
             </span>
 
             <strong>
@@ -435,8 +761,31 @@ export default function FceRecord() {
           </div>
 
           <div>
-            <span className="small-label">
-              STATUS
+            <span>
+              Assessment date
+            </span>
+
+            <strong>
+              {formatDate(
+                assessment.assessment_date
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Referral reason
+            </span>
+
+            <strong>
+              {assessment.referral_reason ||
+                'Not recorded'}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Assessment status
             </span>
 
             <span
@@ -454,113 +803,6 @@ export default function FceRecord() {
           </div>
 
         </div>
-      </section>
-
-      <div className="fce-summary-grid">
-
-        <div className="worker-summary-card">
-          <CheckCircle2
-            size={20}
-          />
-
-          <span>
-            Passed
-          </span>
-
-          <strong>
-            {analysis.passed}
-          </strong>
-        </div>
-
-        <div className="worker-summary-card">
-          <Activity size={20} />
-
-          <span>
-            Borderline
-          </span>
-
-          <strong>
-            {analysis.borderline}
-          </strong>
-        </div>
-
-        <div className="worker-summary-card">
-          <TrendingDown
-            size={20}
-          />
-
-          <span>
-            Capacity gaps
-          </span>
-
-          <strong>
-            {analysis.gaps}
-          </strong>
-        </div>
-
-        <div className="worker-summary-card">
-          <ShieldCheck
-            size={20}
-          />
-
-          <span>
-            Failed
-          </span>
-
-          <strong>
-            {analysis.failed}
-          </strong>
-        </div>
-
-      </div>
-
-      <section className="panel assessment-section">
-
-        <div className="assessment-section-title">
-          <div className="profile-card-icon">
-            <User size={20} />
-          </div>
-
-          <div>
-            <h3>
-              Assessment Details
-            </h3>
-
-            <p>
-              Referral and pre-test
-              information.
-            </p>
-          </div>
-        </div>
-
-        <div className="record-details-grid">
-
-          <div>
-            <span>
-              Referral reason
-            </span>
-
-            <strong>
-              {assessment.referral_reason ||
-                'Not recorded'}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Pre-test status
-            </span>
-
-            <strong>
-              {assessment.pre_test_status
-                ? formatStatus(
-                    assessment.pre_test_status
-                  )
-                : 'Not recorded'}
-            </strong>
-          </div>
-
-        </div>
 
       </section>
 
@@ -575,12 +817,13 @@ export default function FceRecord() {
 
           <div>
             <h3>
-              Pre-Test Screening
+              Pre-Test Clinical Screening
             </h3>
 
             <p>
-              Baseline clinical
-              observations.
+              Baseline observations
+              recorded before functional
+              testing.
             </p>
           </div>
         </div>
@@ -589,7 +832,7 @@ export default function FceRecord() {
 
           <div>
             <span>
-              Pain
+              Pain score
             </span>
 
             <strong>
@@ -609,7 +852,8 @@ export default function FceRecord() {
                 '—'}
               /
               {assessment.diastolic_bp ??
-                '—'}
+                '—'}{' '}
+              mmHg
             </strong>
           </div>
 
@@ -662,6 +906,101 @@ export default function FceRecord() {
 
         </div>
 
+        <div className="record-text-block">
+          <span>
+            Pre-test status
+          </span>
+
+          <p>
+            {formatStatus(
+              assessment.pre_test_status
+            )}
+          </p>
+        </div>
+
+      </section>
+
+      <section className="panel assessment-section">
+
+        <div className="assessment-section-title">
+          <div className="profile-card-icon">
+            <Activity size={20} />
+          </div>
+
+          <div>
+            <h3>
+              Capacity Summary
+            </h3>
+
+            <p>
+              Summary of recorded
+              functional test results.
+            </p>
+          </div>
+        </div>
+
+        <div className="fce-summary-grid">
+
+          <div className="worker-summary-card">
+            <ClipboardCheck
+              size={20}
+            />
+
+            <span>
+              Tests assessed
+            </span>
+
+            <strong>
+              {analysis.tested}
+            </strong>
+          </div>
+
+          <div className="worker-summary-card">
+            <CheckCircle2
+              size={20}
+            />
+
+            <span>
+              Passed
+            </span>
+
+            <strong>
+              {analysis.passed}
+            </strong>
+          </div>
+
+          <div className="worker-summary-card">
+            <Activity size={20} />
+
+            <span>
+              Borderline
+            </span>
+
+            <strong>
+              {analysis.borderline}
+            </strong>
+          </div>
+
+          <div className="worker-summary-card">
+            <TrendingDown
+              size={20}
+            />
+
+            <span>
+              Capacity gaps
+            </span>
+
+            <strong>
+              {
+                analysis
+                  .capacityGaps
+                  .length
+              }
+            </strong>
+          </div>
+
+        </div>
+
       </section>
 
       <section className="panel assessment-section">
@@ -675,13 +1014,14 @@ export default function FceRecord() {
 
           <div>
             <h3>
-              Functional Test
+              Functional Capacity
               Results
             </h3>
 
             <p>
-              Worker capacity compared
-              with recorded job demand.
+              Recorded capacity compared
+              with available job-demand
+              requirements.
             </p>
           </div>
         </div>
@@ -691,33 +1031,13 @@ export default function FceRecord() {
           <table>
             <thead>
               <tr>
-                <th>
-                  Test
-                </th>
-
-                <th>
-                  Capacity
-                </th>
-
-                <th>
-                  Job demand
-                </th>
-
-                <th>
-                  Capacity %
-                </th>
-
-                <th>
-                  Pain
-                </th>
-
-                <th>
-                  Result
-                </th>
-
-                <th>
-                  Notes
-                </th>
+                <th>Test</th>
+                <th>Capacity</th>
+                <th>Job Demand</th>
+                <th>Capacity %</th>
+                <th>Pain</th>
+                <th>Result</th>
+                <th>Notes</th>
               </tr>
             </thead>
 
@@ -734,16 +1054,17 @@ export default function FceRecord() {
 
               {results.map(
                 (item) => {
-                  const hasComparison =
+                  const canCompare =
                     item.measured_value !==
                       null &&
                     item.required_value !==
                       null &&
-                    item.required_value >
-                      0
+                    Number(
+                      item.required_value
+                    ) > 0
 
                   const percentage =
-                    hasComparison
+                    canCompare
                       ? (Number(
                           item.measured_value
                         ) /
@@ -758,18 +1079,18 @@ export default function FceRecord() {
 
                       <td>
                         <strong>
-                          {
-                            item.test_name
-                          }
+                          {item.test_name}
                         </strong>
 
                         <div className="test-category">
-                          {
+                          {formatStatus(
                             item.test_category
-                          }
+                          )}
 
                           {item.side
-                            ? ` • ${item.side}`
+                            ? ` • ${formatStatus(
+                                item.side
+                              )}`
                             : ''}
                         </div>
                       </td>
@@ -777,15 +1098,13 @@ export default function FceRecord() {
                       <td>
                         {item.measured_value ??
                           '—'}{' '}
-                        {item.unit ??
-                          ''}
+                        {item.unit ?? ''}
                       </td>
 
                       <td>
                         {item.required_value ??
                           '—'}{' '}
-                        {item.unit ??
-                          ''}
+                        {item.unit ?? ''}
                       </td>
 
                       <td>
@@ -807,13 +1126,12 @@ export default function FceRecord() {
 
                       <td>
                         <span
-                          className={`badge ${
-                            item.result ??
-                            'not_tested'
-                          }`}
+                          className={`badge ${getResultClass(
+                            item.result
+                          )}`}
                         >
                           {formatStatus(
-                            item.result ??
+                            item.result ||
                               'not_tested'
                           )}
                         </span>
@@ -836,7 +1154,95 @@ export default function FceRecord() {
 
       </section>
 
-      <section className="panel assessment-section outcome-record">
+      {analysis.capacityGaps.length >
+        0 && (
+        <section className="panel assessment-section">
+
+          <div className="assessment-section-title">
+            <div className="profile-card-icon">
+              <TrendingDown
+                size={20}
+              />
+            </div>
+
+            <div>
+              <h3>
+                Identified Capacity Gaps
+              </h3>
+
+              <p>
+                Recorded capacities below
+                the available job-demand
+                requirement.
+              </p>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Activity</th>
+                  <th>Worker</th>
+                  <th>Required</th>
+                  <th>Difference</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {analysis.capacityGaps.map(
+                  (item) => {
+                    const difference =
+                      Number(
+                        item.required_value
+                      ) -
+                      Number(
+                        item.measured_value
+                      )
+
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>
+                            {item.test_name}
+                          </strong>
+                        </td>
+
+                        <td>
+                          {
+                            item.measured_value
+                          }{' '}
+                          {item.unit ?? ''}
+                        </td>
+
+                        <td>
+                          {
+                            item.required_value
+                          }{' '}
+                          {item.unit ?? ''}
+                        </td>
+
+                        <td>
+                          {difference.toFixed(
+                            1
+                          )}{' '}
+                          {item.unit ?? ''}
+                          {' below demand'}
+                        </td>
+                      </tr>
+                    )
+                  }
+                )}
+              </tbody>
+            </table>
+
+          </div>
+
+        </section>
+      )}
+
+      <section className="panel assessment-section">
 
         <div className="assessment-section-title">
           <div className="profile-card-icon">
@@ -847,12 +1253,13 @@ export default function FceRecord() {
 
           <div>
             <h3>
-              Final Outcome
+              Final Assessor Outcome
             </h3>
 
             <p>
-              Assessor-recorded FCE
-              conclusion.
+              Final recorded clinical
+              decision for this
+              assessment.
             </p>
           </div>
         </div>
@@ -864,15 +1271,14 @@ export default function FceRecord() {
           </span>
 
           <span
-            className={`badge ${outcomeBadge(
+            className={`badge ${getOutcomeClass(
               assessment.final_outcome
             )}`}
           >
-            {assessment.final_outcome
-              ? formatStatus(
-                  assessment.final_outcome
-                )
-              : 'Pending'}
+            {formatStatus(
+              assessment.final_outcome ||
+                'pending'
+            )}
           </span>
 
         </div>
@@ -904,6 +1310,109 @@ export default function FceRecord() {
         </div>
 
       </section>
+
+      <section className="panel assessment-section">
+
+        <div className="assessment-section-title">
+          <div className="profile-card-icon">
+            <ClipboardCheck
+              size={20}
+            />
+          </div>
+
+          <div>
+            <h3>
+              Assessor Declaration
+            </h3>
+          </div>
+        </div>
+
+        <div className="record-text-block">
+
+          <p>
+            This report records the
+            functional capacity findings
+            obtained during the assessment
+            and compares recorded worker
+            performance with the job-demand
+            information available within
+            SpineSync.
+          </p>
+
+          <p>
+            The final outcome documented
+            above represents the assessor's
+            recorded professional decision.
+            Functional test results should
+            be interpreted together with
+            the worker's clinical
+            presentation, occupational
+            requirements and other relevant
+            medical or occupational-health
+            information.
+          </p>
+
+        </div>
+
+        <div className="record-details-grid">
+
+          <div>
+            <span>
+              Assessor
+            </span>
+
+            <strong>
+              Registered healthcare
+              professional
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Assessment date
+            </span>
+
+            <strong>
+              {formatDate(
+                assessment.assessment_date
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Report reference
+            </span>
+
+            <strong>
+              {reportReference()}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Platform
+            </span>
+
+            <strong>
+              SpineSync Enterprise
+            </strong>
+          </div>
+
+        </div>
+
+      </section>
+
+      <div className="report-footer">
+        <strong>
+          SPINESYNC ENTERPRISE
+        </strong>
+
+        <span>
+          Functional Capacity Evaluation
+          Report • {reportReference()}
+        </span>
+      </div>
 
     </div>
   )
