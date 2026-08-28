@@ -2,7 +2,6 @@ import {
   Activity,
   ArrowLeft,
   BriefcaseBusiness,
-  CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   HeartPulse,
@@ -29,6 +28,7 @@ import { supabase } from '../lib/supabase'
 type Assessment = {
   id: string
   worker_id: string
+  assessor_id: string | null
   assessment_type: string
   assessment_date: string
   referral_reason: string | null
@@ -81,6 +81,16 @@ type NamedItem = {
   title?: string
 }
 
+type AssessorProfile = {
+  id: string
+  full_name: string | null
+  profession: string | null
+  hpcsa_number: string | null
+  practice_name: string | null
+  phone: string | null
+  email: string | null
+}
+
 export default function FceRecord() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -105,6 +115,9 @@ export default function FceRecord() {
 
   const [job, setJob] =
     useState<NamedItem | null>(null)
+
+  const [assessor, setAssessor] =
+    useState<AssessorProfile | null>(null)
 
   const [loading, setLoading] =
     useState(true)
@@ -134,6 +147,7 @@ export default function FceRecord() {
       .select(`
         id,
         worker_id,
+        assessor_id,
         assessment_type,
         assessment_date,
         referral_reason,
@@ -206,6 +220,7 @@ export default function FceRecord() {
       siteResponse,
       departmentResponse,
       jobResponse,
+      assessorResponse,
     ] = await Promise.all([
       supabase
         .from('fce_results')
@@ -283,6 +298,28 @@ export default function FceRecord() {
             data: null,
             error: null,
           }),
+
+      typedAssessment.assessor_id
+        ? supabase
+            .from('profiles')
+            .select(`
+              id,
+              full_name,
+              profession,
+              hpcsa_number,
+              practice_name,
+              phone,
+              email
+            `)
+            .eq(
+              'id',
+              typedAssessment.assessor_id
+            )
+            .maybeSingle()
+        : Promise.resolve({
+            data: null,
+            error: null,
+          }),
     ])
 
     if (resultsResponse.error) {
@@ -301,6 +338,14 @@ export default function FceRecord() {
     setSite(siteResponse.data)
     setDepartment(departmentResponse.data)
     setJob(jobResponse.data)
+
+    if (assessorResponse.data) {
+      setAssessor(
+        assessorResponse.data as AssessorProfile
+      )
+    } else {
+      setAssessor(null)
+    }
 
     setLoading(false)
   }
@@ -385,9 +430,13 @@ export default function FceRecord() {
   function resultClass(
     value: string | null
   ) {
-    if (value === 'pass') return 'pass'
+    if (value === 'pass') {
+      return 'pass'
+    }
 
-    if (value === 'fail') return 'fail'
+    if (value === 'fail') {
+      return 'fail'
+    }
 
     if (value === 'borderline') {
       return 'borderline'
@@ -399,7 +448,9 @@ export default function FceRecord() {
   function outcomeClass(
     value: string | null
   ) {
-    if (value === 'fit') return 'pass'
+    if (value === 'fit') {
+      return 'pass'
+    }
 
     if (
       value === 'temporarily_unfit'
@@ -432,6 +483,7 @@ export default function FceRecord() {
   ) {
     return (
       <div className="stack">
+
         <div className="error-message">
           {error ||
             'Assessment not found.'}
@@ -445,6 +497,7 @@ export default function FceRecord() {
         >
           Back to workers
         </button>
+
       </div>
     )
   }
@@ -626,7 +679,7 @@ export default function FceRecord() {
 
         </div>
 
-        {/* MINING PLACEMENT */}
+        {/* OCCUPATIONAL PLACEMENT */}
 
         <div className="fce-report-section">
 
@@ -771,8 +824,7 @@ export default function FceRecord() {
 
             <div>
               <h2>
-                Pre-Test Clinical
-                Screening
+                Pre-Test Clinical Screening
               </h2>
 
               <p>
@@ -982,8 +1034,7 @@ export default function FceRecord() {
 
             <div>
               <h2>
-                Functional Capacity
-                Summary
+                Functional Capacity Summary
               </h2>
 
               <p>
@@ -1077,25 +1128,11 @@ export default function FceRecord() {
 
               <thead>
                 <tr>
-                  <th>
-                    Test
-                  </th>
-
-                  <th>
-                    Worker
-                  </th>
-
-                  <th>
-                    Demand
-                  </th>
-
-                  <th>
-                    Comparison
-                  </th>
-
-                  <th>
-                    Result
-                  </th>
+                  <th>Test</th>
+                  <th>Worker</th>
+                  <th>Demand</th>
+                  <th>Comparison</th>
+                  <th>Result</th>
                 </tr>
               </thead>
 
@@ -1162,8 +1199,7 @@ export default function FceRecord() {
                         </td>
 
                         <td>
-                          {percentage !==
-                          null
+                          {percentage !== null
                             ? `${percentage.toFixed(
                                 0
                               )}%`
@@ -1353,7 +1389,7 @@ export default function FceRecord() {
 
         </div>
 
-        {/* DECLARATION */}
+        {/* ASSESSOR DECLARATION */}
 
         <div className="fce-declaration">
 
@@ -1390,7 +1426,19 @@ export default function FceRecord() {
               </span>
 
               <strong>
-                __________________________
+                {assessor?.full_name ||
+                  'Not recorded'}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Profession
+              </span>
+
+              <strong>
+                {assessor?.profession ||
+                  'Not recorded'}
               </strong>
             </div>
 
@@ -1400,7 +1448,43 @@ export default function FceRecord() {
               </span>
 
               <strong>
-                __________________________
+                {assessor?.hpcsa_number ||
+                  'Not recorded'}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Practice / Organisation
+              </span>
+
+              <strong>
+                {assessor?.practice_name ||
+                  'Not recorded'}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Contact
+              </span>
+
+              <strong>
+                {assessor?.phone ||
+                  assessor?.email ||
+                  'Not recorded'}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Assessment Date
+              </span>
+
+              <strong>
+                {formatDate(
+                  assessment.assessment_date
+                )}
               </strong>
             </div>
 
@@ -1411,18 +1495,6 @@ export default function FceRecord() {
 
               <strong>
                 __________________________
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Date
-              </span>
-
-              <strong>
-                {formatDate(
-                  assessment.assessment_date
-                )}
               </strong>
             </div>
 
