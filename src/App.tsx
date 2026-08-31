@@ -14,7 +14,9 @@ import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
 import NewAssessment from './pages/NewAssessment'
 import NewRehabCase from './pages/NewRehabCase'
+import NewRehabSession from './pages/NewRehabSession'
 import Onboarding from './pages/Onboarding'
+import RehabCase from './pages/RehabCase'
 import Rehabilitation from './pages/Rehabilitation'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -60,6 +62,11 @@ export default function App() {
 
         <Route path="rehabilitation" element={<Rehabilitation />} />
         <Route path="rehabilitation/new" element={<NewRehabCase />} />
+        <Route path="rehabilitation/:id" element={<RehabCase />} />
+        <Route
+          path="rehabilitation/:id/sessions/new"
+          element={<NewRehabSession />}
+        />
 
         <Route path="mining-structure" element={<MiningStructure />} />
         <Route path="job-profiles" element={<JobProfiles />} />
