@@ -19,49 +19,6 @@ import { useAuth } from '../context/AuthContext'
 export default function AppShell() {
   const { signOut } = useAuth()
 
-  const navigation = [
-    {
-      label: 'Dashboard',
-      path: '/dashboard',
-      icon: LayoutDashboard,
-    },
-    {
-      label: 'Workers',
-      path: '/workers',
-      icon: Users,
-    },
-    {
-      label: 'Assessments',
-      path: '/assessments',
-      icon: ClipboardCheck,
-    },
-    {
-      label: 'Rehabilitation',
-      path: '/rehabilitation',
-      icon: Activity,
-    },
-    {
-      label: 'Mining Structure',
-      path: '/mining-structure',
-      icon: Network,
-    },
-    {
-      label: 'Job Profiles',
-      path: '/job-profiles',
-      icon: BriefcaseBusiness,
-    },
-    {
-      label: 'Reports',
-      path: '/reports',
-      icon: ClipboardCheck,
-    },
-    {
-      label: 'Settings',
-      path: '/settings',
-      icon: Settings,
-    },
-  ]
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -71,43 +28,77 @@ export default function AppShell() {
           </div>
 
           <div>
-            <strong>
-              SpineSync
-            </strong>
-
-            <span>
-              Enterprise
-            </span>
+            <strong>SpineSync</strong>
+            <span>Enterprise</span>
           </div>
         </div>
 
         <nav className="sidebar-nav">
-          {navigation.map(
-            ({
-              label,
-              path,
-              icon: Icon,
-            }) => (
-              <NavLink
-                key={path}
-                to={path}
-                className={({
-                  isActive,
-                }) =>
-                  `sidebar-link ${
-                    isActive
-                      ? 'active'
-                      : ''
-                  }`
-                }
-              >
-                <Icon size={18} />
-                <span>
-                  {label}
-                </span>
-              </NavLink>
-            )
-          )}
+
+          <NavLink
+            to="/dashboard"
+            className="sidebar-link"
+          >
+            <LayoutDashboard size={18} />
+            <span>Dashboard</span>
+          </NavLink>
+
+          <NavLink
+            to="/workers"
+            className="sidebar-link"
+          >
+            <Users size={18} />
+            <span>Workers</span>
+          </NavLink>
+
+          <NavLink
+            to="/assessments"
+            className="sidebar-link"
+          >
+            <ClipboardCheck size={18} />
+            <span>Assessments</span>
+          </NavLink>
+
+          <NavLink
+            to="/rehabilitation"
+            className="sidebar-link"
+          >
+            <Activity size={18} />
+            <span>Rehabilitation</span>
+          </NavLink>
+
+          <NavLink
+            to="/mining-structure"
+            className="sidebar-link"
+          >
+            <Network size={18} />
+            <span>Mining Structure</span>
+          </NavLink>
+
+          <NavLink
+            to="/job-profiles"
+            className="sidebar-link"
+          >
+            <BriefcaseBusiness size={18} />
+            <span>Job Profiles</span>
+          </NavLink>
+
+          <NavLink
+            to="/reports"
+            className="sidebar-link"
+          >
+            <ClipboardCheck size={18} />
+            <span>Reports</span>
+          </NavLink>
+
+          <NavLink
+            to="/settings"
+            className="sidebar-link"
+          >
+            <Settings size={18} />
+            <span>Settings</span>
+          </NavLink>
+
         </nav>
 
         <div className="sidebar-footer">
@@ -116,10 +107,7 @@ export default function AppShell() {
             onClick={signOut}
           >
             <LogOut size={18} />
-
-            <span>
-              Sign Out
-            </span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
