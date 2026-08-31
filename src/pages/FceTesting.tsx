@@ -36,15 +36,12 @@ type JobProfile = {
   id: string
   title: string
   physical_demand_level: string | null
-
   lifting_required_kg: number | null
   carrying_required_kg: number | null
   push_required_kg: number | null
   pull_required_kg: number | null
-
   standing_required_minutes: number | null
   walking_required_minutes: number | null
-
   stair_climbing_required: boolean | null
   ladder_climbing_required: boolean | null
   squatting_required: boolean | null
@@ -56,15 +53,43 @@ type JobProfile = {
   confined_space_required: boolean | null
 }
 
+type TestMode =
+  | 'numeric'
+  | 'functional'
+
 type TestRow = {
   key: string
   category: string
   name: string
   side: string | null
   unit: string
+  mode: TestMode
   measured: string
   required: number | null
+  repetitions: string
+  durationSeconds: string
+  movementQuality: string
+  assistanceRequired: string
+  symptomsReported: string
+  assessorRating: string
   notes: string
+}
+
+type ExistingResult = {
+  test_category: string
+  test_name: string
+  side: string | null
+  measured_value: number | null
+  required_value: number | null
+  unit: string | null
+  result: string | null
+  repetitions: number | null
+  duration_seconds: number | null
+  movement_quality: string | null
+  assistance_required: string | null
+  symptoms_reported: string | null
+  assessor_rating: string | null
+  notes: string | null
 }
 
 export default function FceTesting() {
@@ -159,7 +184,8 @@ export default function FceTesting() {
 
     setWorker(typedWorker)
 
-    let profile: JobProfile | null = null
+    let profile: JobProfile | null =
+      null
 
     if (typedWorker.job_profile_id) {
       const {
@@ -217,6 +243,13 @@ export default function FceTesting() {
         measured_value,
         required_value,
         unit,
+        result,
+        repetitions,
+        duration_seconds,
+        movement_quality,
+        assistance_required,
+        symptoms_reported,
+        assessor_rating,
         notes
       `)
       .eq(
@@ -233,10 +266,14 @@ export default function FceTesting() {
     const baseTests =
       buildTests(profile)
 
+    const typedExisting =
+      (existingResults ??
+        []) as ExistingResult[]
+
     const mergedTests =
       baseTests.map((test) => {
         const existing =
-          existingResults?.find(
+          typedExisting.find(
             (result) =>
               result.test_name ===
                 test.name &&
@@ -259,6 +296,38 @@ export default function FceTesting() {
                 )
               : '',
 
+          repetitions:
+            existing.repetitions !== null
+              ? String(
+                  existing.repetitions
+                )
+              : '',
+
+          durationSeconds:
+            existing.duration_seconds !==
+            null
+              ? String(
+                  existing.duration_seconds
+                )
+              : '',
+
+          movementQuality:
+            existing.movement_quality ||
+            '',
+
+          assistanceRequired:
+            existing
+              .assistance_required || '',
+
+          symptomsReported:
+            existing
+              .symptoms_reported || '',
+
+          assessorRating:
+            existing.assessor_rating ||
+            existing.result ||
+            '',
+
           notes:
             existing.notes || '',
         }
@@ -266,6 +335,18 @@ export default function FceTesting() {
 
     setTests(mergedTests)
     setLoading(false)
+  }
+
+  function emptyFunctionalFields() {
+    return {
+      repetitions: '',
+      durationSeconds: '',
+      movementQuality: '',
+      assistanceRequired: '',
+      symptomsReported: '',
+      assessorRating: '',
+      notes: '',
+    }
   }
 
   function buildTests(
@@ -278,9 +359,10 @@ export default function FceTesting() {
         name: 'Grip Strength',
         side: 'right',
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required: null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
 
       {
@@ -289,9 +371,10 @@ export default function FceTesting() {
         name: 'Grip Strength',
         side: 'left',
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required: null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
 
       {
@@ -300,11 +383,12 @@ export default function FceTesting() {
         name: 'Floor-to-Waist Lift',
         side: null,
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required:
           profile?.lifting_required_kg ??
           null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
 
       {
@@ -313,11 +397,12 @@ export default function FceTesting() {
         name: 'Waist-to-Shoulder Lift',
         side: null,
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required:
           profile?.lifting_required_kg ??
           null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
 
       {
@@ -326,11 +411,12 @@ export default function FceTesting() {
         name: 'Carry',
         side: null,
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required:
           profile?.carrying_required_kg ??
           null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
 
       {
@@ -339,11 +425,12 @@ export default function FceTesting() {
         name: 'Push',
         side: null,
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required:
           profile?.push_required_kg ??
           null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
 
       {
@@ -352,19 +439,20 @@ export default function FceTesting() {
         name: 'Pull',
         side: null,
         unit: 'kg',
+        mode: 'numeric',
         measured: '',
         required:
           profile?.pull_required_kg ??
           null,
-        notes: '',
+        ...emptyFunctionalFields(),
       },
     ]
 
     if (
       profile?.standing_required_minutes !==
-      null &&
+        null &&
       profile?.standing_required_minutes !==
-      undefined
+        undefined
     ) {
       rows.push({
         key: 'standing',
@@ -372,18 +460,19 @@ export default function FceTesting() {
         name: 'Standing Tolerance',
         side: null,
         unit: 'min',
+        mode: 'numeric',
         measured: '',
         required:
           profile.standing_required_minutes,
-        notes: '',
+        ...emptyFunctionalFields(),
       })
     }
 
     if (
       profile?.walking_required_minutes !==
-      null &&
+        null &&
       profile?.walking_required_minutes !==
-      undefined
+        undefined
     ) {
       rows.push({
         key: 'walking',
@@ -391,149 +480,107 @@ export default function FceTesting() {
         name: 'Walking Tolerance',
         side: null,
         unit: 'min',
+        mode: 'numeric',
         measured: '',
         required:
           profile.walking_required_minutes,
-        notes: '',
+        ...emptyFunctionalFields(),
       })
     }
 
-    if (profile?.squatting_required) {
-      rows.push({
-        key: 'squat',
-        category: 'postural',
-        name: 'Squat',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
-
-    if (profile?.kneeling_required) {
-      rows.push({
-        key: 'kneeling',
-        category: 'postural',
-        name: 'Kneeling',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
-
-    if (
-      profile?.stair_climbing_required
+    function addFunctional(
+      condition: boolean | null | undefined,
+      key: string,
+      category: string,
+      name: string
     ) {
+      if (!condition) {
+        return
+      }
+
       rows.push({
-        key: 'stairs',
-        category: 'mobility',
-        name: 'Stair Climbing',
+        key,
+        category,
+        name,
         side: null,
-        unit: 'score',
+        unit: '',
+        mode: 'functional',
         measured: '',
-        required: 1,
-        notes: '',
+        required: null,
+        ...emptyFunctionalFields(),
       })
     }
 
-    if (
-      profile?.ladder_climbing_required
-    ) {
-      rows.push({
-        key: 'ladder',
-        category: 'mobility',
-        name: 'Ladder Climbing',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
+    addFunctional(
+      profile?.squatting_required,
+      'squat',
+      'postural',
+      'Squatting'
+    )
 
-    if (profile?.crawling_required) {
-      rows.push({
-        key: 'crawling',
-        category: 'postural',
-        name: 'Crawling',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
+    addFunctional(
+      profile?.kneeling_required,
+      'kneeling',
+      'postural',
+      'Kneeling'
+    )
 
-    if (
-      profile?.overhead_work_required
-    ) {
-      rows.push({
-        key: 'overhead-work',
-        category: 'upper_limb',
-        name: 'Overhead Work',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
+    addFunctional(
+      profile?.stair_climbing_required,
+      'stairs',
+      'mobility',
+      'Stair Climbing'
+    )
 
-    if (
+    addFunctional(
+      profile?.ladder_climbing_required,
+      'ladder',
+      'mobility',
+      'Ladder Climbing'
+    )
+
+    addFunctional(
+      profile?.crawling_required,
+      'crawling',
+      'postural',
+      'Crawling'
+    )
+
+    addFunctional(
+      profile?.overhead_work_required,
+      'overhead-work',
+      'upper_limb',
+      'Overhead Work'
+    )
+
+    addFunctional(
       profile
-        ?.repetitive_upper_limb_required
-    ) {
-      rows.push({
-        key: 'repetitive-upper-limb',
-        category: 'upper_limb',
-        name: 'Repetitive Upper-Limb Work',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
+        ?.repetitive_upper_limb_required,
+      'repetitive-upper-limb',
+      'upper_limb',
+      'Repetitive Upper-Limb Work'
+    )
 
-    if (
-      profile?.uneven_ground_required
-    ) {
-      rows.push({
-        key: 'uneven-ground',
-        category: 'mobility',
-        name: 'Uneven Ground Mobility',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
+    addFunctional(
+      profile?.uneven_ground_required,
+      'uneven-ground',
+      'mobility',
+      'Uneven Ground Mobility'
+    )
 
-    if (
-      profile?.confined_space_required
-    ) {
-      rows.push({
-        key: 'confined-space',
-        category: 'functional',
-        name: 'Confined Space Mobility',
-        side: null,
-        unit: 'score',
-        measured: '',
-        required: 1,
-        notes: '',
-      })
-    }
+    addFunctional(
+      profile?.confined_space_required,
+      'confined-space',
+      'functional',
+      'Confined Space Mobility'
+    )
 
     return rows
   }
 
   function updateTest(
     key: string,
-    field: 'measured' | 'notes',
+    field: keyof TestRow,
     value: string
   ) {
     setTests((current) =>
@@ -548,7 +595,36 @@ export default function FceTesting() {
     )
   }
 
-  function classify(
+  function numberOrNull(
+    value: string
+  ) {
+    if (!value.trim()) {
+      return null
+    }
+
+    const number = Number(value)
+
+    return Number.isNaN(number)
+      ? null
+      : number
+  }
+
+  function integerOrNull(
+    value: string
+  ) {
+    if (!value.trim()) {
+      return null
+    }
+
+    const number =
+      parseInt(value, 10)
+
+    return Number.isNaN(number)
+      ? null
+      : number
+  }
+
+  function classifyNumeric(
     measured: number | null,
     required: number | null
   ) {
@@ -574,19 +650,20 @@ export default function FceTesting() {
     return 'fail'
   }
 
-  function numberOrNull(
-    value: string
+  function getTestResult(
+    test: TestRow
   ) {
-    if (!value.trim()) {
-      return null
+    if (test.mode === 'functional') {
+      return (
+        test.assessorRating ||
+        'not_tested'
+      )
     }
 
-    const number =
-      Number(value)
-
-    return Number.isNaN(number)
-      ? null
-      : number
+    return classifyNumeric(
+      numberOrNull(test.measured),
+      test.required
+    )
   }
 
   const summary = useMemo(() => {
@@ -596,14 +673,8 @@ export default function FceTesting() {
     let notTested = 0
 
     tests.forEach((test) => {
-      const measured =
-        numberOrNull(test.measured)
-
       const result =
-        classify(
-          measured,
-          test.required
-        )
+        getTestResult(test)
 
       if (result === 'pass') {
         pass += 1
@@ -611,7 +682,9 @@ export default function FceTesting() {
         result === 'borderline'
       ) {
         borderline += 1
-      } else if (result === 'fail') {
+      } else if (
+        result === 'fail'
+      ) {
         fail += 1
       } else {
         notTested += 1
@@ -634,11 +707,6 @@ export default function FceTesting() {
     setSaving(true)
     setError(null)
 
-    /*
-      Replace the assessment's existing
-      test rows with the current values.
-    */
-
     const {
       error: deleteError,
     } = await supabase
@@ -658,9 +726,14 @@ export default function FceTesting() {
     const rows = tests.map(
       (test) => {
         const measured =
-          numberOrNull(
-            test.measured
-          )
+          test.mode === 'numeric'
+            ? numberOrNull(
+                test.measured
+              )
+            : null
+
+        const result =
+          getTestResult(test)
 
         return {
           assessment_id:
@@ -679,16 +752,54 @@ export default function FceTesting() {
             measured,
 
           required_value:
-            test.required,
+            test.mode === 'numeric'
+              ? test.required
+              : null,
 
           unit:
-            test.unit,
+            test.mode === 'numeric'
+              ? test.unit
+              : null,
 
-          result:
-            classify(
-              measured,
-              test.required
-            ),
+          result,
+
+          repetitions:
+            test.mode === 'functional'
+              ? integerOrNull(
+                  test.repetitions
+                )
+              : null,
+
+          duration_seconds:
+            test.mode === 'functional'
+              ? numberOrNull(
+                  test.durationSeconds
+                )
+              : null,
+
+          movement_quality:
+            test.mode === 'functional'
+              ? test.movementQuality ||
+                null
+              : null,
+
+          assistance_required:
+            test.mode === 'functional'
+              ? test
+                  .assistanceRequired ||
+                null
+              : null,
+
+          symptoms_reported:
+            test.mode === 'functional'
+              ? test.symptomsReported ||
+                null
+              : null,
+
+          assessor_rating:
+            test.mode === 'functional'
+              ? result
+              : null,
 
           notes:
             test.notes.trim() ||
@@ -716,26 +827,13 @@ export default function FceTesting() {
     )
   }
 
-  function formatDemandLevel(
+  function formatLabel(
     value: string | null
   ) {
     if (!value) {
       return 'Not specified'
     }
 
-    return value
-      .split('_')
-      .join(' ')
-      .replace(
-        /\b\w/g,
-        (letter: string) =>
-          letter.toUpperCase()
-      )
-  }
-
-  function categoryLabel(
-    value: string
-  ) {
     return value
       .split('_')
       .join(' ')
@@ -789,7 +887,6 @@ export default function FceTesting() {
       <div className="page-heading">
 
         <div>
-
           <span className="eyebrow">
             FUNCTIONAL CAPACITY
             EVALUATION
@@ -802,9 +899,8 @@ export default function FceTesting() {
           <p>
             Record worker performance
             against the physical demands
-            of the assigned job profile.
+            of the assigned job.
           </p>
-
         </div>
 
         <button
@@ -827,8 +923,6 @@ export default function FceTesting() {
         </div>
       )}
 
-      {/* WORKER */}
-
       <div className="worker-summary-card">
 
         <div className="worker-avatar-large">
@@ -836,9 +930,7 @@ export default function FceTesting() {
         </div>
 
         <div>
-          <span>
-            WORKER
-          </span>
+          <span>WORKER</span>
 
           <h3>
             {worker?.first_name}{' '}
@@ -852,8 +944,6 @@ export default function FceTesting() {
         </div>
 
       </div>
-
-      {/* JOB DEMAND */}
 
       <div className="panel">
 
@@ -871,10 +961,9 @@ export default function FceTesting() {
             </h3>
 
             <p>
-              The FCE requirements below
-              are automatically generated
-              from the worker's assigned
-              job profile.
+              Test requirements are based
+              on the worker's assigned job
+              profile.
             </p>
           </div>
 
@@ -899,7 +988,7 @@ export default function FceTesting() {
               </span>
 
               <h3>
-                {formatDemandLevel(
+                {formatLabel(
                   jobProfile
                     .physical_demand_level
                 )}
@@ -909,17 +998,13 @@ export default function FceTesting() {
           </div>
         ) : (
           <div className="error-message">
-            This worker does not currently
-            have a job profile assigned.
-            Tests can still be recorded,
-            but job-demand comparisons
-            will be limited.
+            This worker has no assigned
+            job profile. Numeric job-demand
+            comparison will be limited.
           </div>
         )}
 
       </div>
-
-      {/* SUMMARY */}
 
       <div className="panel">
 
@@ -940,7 +1025,6 @@ export default function FceTesting() {
             <span>
               BORDERLINE
             </span>
-
             <strong>
               {summary.borderline}
             </strong>
@@ -957,7 +1041,6 @@ export default function FceTesting() {
             <span>
               NOT TESTED
             </span>
-
             <strong>
               {summary.notTested}
             </strong>
@@ -967,21 +1050,11 @@ export default function FceTesting() {
 
       </div>
 
-      {/* TESTS */}
-
       <div className="stack">
 
         {tests.map((test) => {
-          const measured =
-            numberOrNull(
-              test.measured
-            )
-
           const result =
-            classify(
-              measured,
-              test.required
-            )
+            getTestResult(test)
 
           return (
             <div
@@ -992,96 +1065,348 @@ export default function FceTesting() {
               <div className="page-heading">
 
                 <div>
-
                   <span className="eyebrow">
-                    {categoryLabel(
+                    {formatLabel(
                       test.category
                     )}
                   </span>
 
                   <h3>
                     {test.name}
+
                     {test.side
-                      ? ` — ${categoryLabel(
+                      ? ` — ${formatLabel(
                           test.side
                         )}`
                       : ''}
                   </h3>
-
                 </div>
 
                 <span
                   className={`badge ${result}`}
                 >
-                  {categoryLabel(result)}
+                  {formatLabel(result)}
                 </span>
 
               </div>
 
-              <div className="form-grid">
+              {test.mode ===
+              'numeric' ? (
+                <>
+                  <div className="form-grid">
 
-                <label>
-                  <span>
-                    Worker Performance
-                    ({test.unit})
-                  </span>
+                    <label>
+                      <span>
+                        Worker Performance
+                        ({test.unit})
+                      </span>
 
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={
-                      test.measured
-                    }
-                    onChange={(event) =>
-                      updateTest(
-                        test.key,
-                        'measured',
-                        event.target.value
-                      )
-                    }
-                    placeholder="Enter result"
-                  />
-                </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={
+                          test.measured
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateTest(
+                            test.key,
+                            'measured',
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="Enter result"
+                      />
+                    </label>
 
-                <label>
-                  <span>
-                    Job Requirement
-                    ({test.unit})
-                  </span>
+                    <label>
+                      <span>
+                        Job Requirement
+                        ({test.unit})
+                      </span>
 
-                  <input
-                    type="text"
-                    value={
-                      test.required !==
-                      null
-                        ? test.required
-                        : 'Not specified'
-                    }
-                    disabled
-                  />
-                </label>
+                      <input
+                        type="text"
+                        value={
+                          test.required !==
+                          null
+                            ? String(
+                                test.required
+                              )
+                            : 'Not specified'
+                        }
+                        disabled
+                      />
+                    </label>
 
-              </div>
+                  </div>
 
-              <label>
-                <span>
-                  Clinical Notes
-                </span>
+                  <label>
+                    <span>
+                      Clinical Notes
+                    </span>
 
-                <textarea
-                  rows={2}
-                  value={test.notes}
-                  onChange={(event) =>
-                    updateTest(
-                      test.key,
-                      'notes',
-                      event.target.value
-                    )
-                  }
-                  placeholder="Pain, movement quality, compensations, symptoms or other observations"
-                />
-              </label>
+                    <textarea
+                      rows={2}
+                      value={
+                        test.notes
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateTest(
+                          test.key,
+                          'notes',
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Pain, symptoms, movement quality or observations"
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <div className="form-grid">
+
+                    <label>
+                      <span>
+                        Assessor Rating
+                      </span>
+
+                      <select
+                        value={
+                          test.assessorRating
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateTest(
+                            test.key,
+                            'assessorRating',
+                            event.target
+                              .value
+                          )
+                        }
+                      >
+                        <option value="">
+                          Not tested
+                        </option>
+
+                        <option value="pass">
+                          Pass
+                        </option>
+
+                        <option value="borderline">
+                          Borderline
+                        </option>
+
+                        <option value="fail">
+                          Fail
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>
+                        Repetitions
+                      </span>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={
+                          test.repetitions
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateTest(
+                            test.key,
+                            'repetitions',
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="e.g. 5"
+                      />
+                    </label>
+
+                    <label>
+                      <span>
+                        Duration
+                        (seconds)
+                      </span>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={
+                          test.durationSeconds
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateTest(
+                            test.key,
+                            'durationSeconds',
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="e.g. 60"
+                      />
+                    </label>
+
+                    <label>
+                      <span>
+                        Movement Quality
+                      </span>
+
+                      <select
+                        value={
+                          test.movementQuality
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateTest(
+                            test.key,
+                            'movementQuality',
+                            event.target
+                              .value
+                          )
+                        }
+                      >
+                        <option value="">
+                          Select
+                        </option>
+
+                        <option value="good">
+                          Good
+                        </option>
+
+                        <option value="fair">
+                          Fair
+                        </option>
+
+                        <option value="poor">
+                          Poor
+                        </option>
+
+                        <option value="unable">
+                          Unable
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>
+                        Assistance Required
+                      </span>
+
+                      <select
+                        value={
+                          test
+                            .assistanceRequired
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateTest(
+                            test.key,
+                            'assistanceRequired',
+                            event.target
+                              .value
+                          )
+                        }
+                      >
+                        <option value="">
+                          Select
+                        </option>
+
+                        <option value="none">
+                          None
+                        </option>
+
+                        <option value="supervision">
+                          Supervision
+                        </option>
+
+                        <option value="minimal">
+                          Minimal Assistance
+                        </option>
+
+                        <option value="moderate">
+                          Moderate Assistance
+                        </option>
+
+                        <option value="maximum">
+                          Maximum Assistance
+                        </option>
+
+                        <option value="unable">
+                          Unable
+                        </option>
+                      </select>
+                    </label>
+
+                  </div>
+
+                  <label>
+                    <span>
+                      Symptoms Reported
+                    </span>
+
+                    <textarea
+                      rows={2}
+                      value={
+                        test.symptomsReported
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateTest(
+                          test.key,
+                          'symptomsReported',
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Pain, fatigue, dizziness, weakness or other symptoms"
+                    />
+                  </label>
+
+                  <label>
+                    <span>
+                      Assessor Notes
+                    </span>
+
+                    <textarea
+                      rows={2}
+                      value={
+                        test.notes
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateTest(
+                          test.key,
+                          'notes',
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Technique, compensations, safety concerns and clinical observations"
+                    />
+                  </label>
+                </>
+              )}
 
             </div>
           )
@@ -1092,13 +1417,14 @@ export default function FceTesting() {
       <div className="panel">
 
         <p>
-          <strong>Important:</strong>{' '}
-          the displayed comparison is
-          decision support only. Final
-          interpretation and fitness
-          determination remain the
-          responsibility of the assessing
-          professional.
+          <strong>Clinical note:</strong>{' '}
+          numeric material-handling tests
+          are compared with recorded job
+          requirements. Functional and
+          postural tasks are rated by the
+          assessor using the observed
+          performance and clinical
+          findings.
         </p>
 
         <button
