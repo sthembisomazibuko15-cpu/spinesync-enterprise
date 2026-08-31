@@ -2,9 +2,12 @@ import {
   Activity,
   ArrowLeft,
   CalendarDays,
+  CheckCircle2,
   ClipboardCheck,
   Plus,
   Save,
+  Target,
+  Trash2,
   UserRound,
 } from 'lucide-react'
 
@@ -66,6 +69,17 @@ type RehabSession = {
   next_plan: string | null
 }
 
+type RehabGoal = {
+  id: string
+  goal_description: string
+  baseline_value: number | null
+  current_value: number | null
+  target_value: number | null
+  target_unit: string | null
+  target_date: string | null
+  goal_status: string
+}
+
 export default function RehabCase() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -82,6 +96,9 @@ export default function RehabCase() {
   const [sessions, setSessions] =
     useState<RehabSession[]>([])
 
+  const [goals, setGoals] =
+    useState<RehabGoal[]>([])
+
   const [caseStatus, setCaseStatus] =
     useState('active')
 
@@ -93,10 +110,46 @@ export default function RehabCase() {
     setExpectedReassessmentDate,
   ] = useState('')
 
+  const [showGoalForm, setShowGoalForm] =
+    useState(false)
+
+  const [
+    goalDescription,
+    setGoalDescription,
+  ] = useState('')
+
+  const [
+    baselineValue,
+    setBaselineValue,
+  ] = useState('')
+
+  const [
+    currentValue,
+    setCurrentValue,
+  ] = useState('')
+
+  const [
+    targetValue,
+    setTargetValue,
+  ] = useState('')
+
+  const [
+    targetUnit,
+    setTargetUnit,
+  ] = useState('kg')
+
+  const [
+    targetDate,
+    setTargetDate,
+  ] = useState('')
+
   const [loading, setLoading] =
     useState(true)
 
   const [saving, setSaving] =
+    useState(false)
+
+  const [savingGoal, setSavingGoal] =
     useState(false)
 
   const [error, setError] =
@@ -172,32 +225,76 @@ export default function RehabCase() {
         ''
     )
 
-    const {
-      data: workerData,
-      error: workerError,
-    } = await supabase
-      .from('workers')
-      .select(`
-        id,
-        employee_number,
-        first_name,
-        last_name,
-        job_profile_id
-      `)
-      .eq(
-        'id',
-        loadedCase.worker_id
-      )
-      .single()
+    const [
+      workerResponse,
+      sessionResponse,
+      goalResponse,
+    ] = await Promise.all([
+      supabase
+        .from('workers')
+        .select(`
+          id,
+          employee_number,
+          first_name,
+          last_name,
+          job_profile_id
+        `)
+        .eq(
+          'id',
+          loadedCase.worker_id
+        )
+        .single(),
 
-    if (workerError) {
-      setError(workerError.message)
+      supabase
+        .from('rehabilitation_sessions')
+        .select(`
+          id,
+          session_date,
+          session_number,
+          pain_score,
+          subjective_report,
+          functional_progress,
+          next_plan
+        `)
+        .eq(
+          'rehabilitation_case_id',
+          id
+        )
+        .order('session_date', {
+          ascending: false,
+        }),
+
+      supabase
+        .from('rehabilitation_goals')
+        .select(`
+          id,
+          goal_description,
+          baseline_value,
+          current_value,
+          target_value,
+          target_unit,
+          target_date,
+          goal_status
+        `)
+        .eq(
+          'rehabilitation_case_id',
+          id
+        )
+        .order('created_at', {
+          ascending: true,
+        }),
+    ])
+
+    if (workerResponse.error) {
+      setError(
+        workerResponse.error.message
+      )
       setLoading(false)
       return
     }
 
     const loadedWorker =
-      workerData as Worker
+      workerResponse.data as Worker
 
     setWorker(loadedWorker)
 
@@ -206,7 +303,6 @@ export default function RehabCase() {
     ) {
       const {
         data: jobData,
-        error: jobError,
       } = await supabase
         .from('job_profiles')
         .select('id,title')
@@ -216,44 +312,37 @@ export default function RehabCase() {
         )
         .single()
 
-      if (!jobError && jobData) {
+      if (jobData) {
         setJobProfile(
           jobData as JobProfile
         )
       }
     }
 
-    const {
-      data: sessionData,
-      error: sessionError,
-    } = await supabase
-      .from('rehabilitation_sessions')
-      .select(`
-        id,
-        session_date,
-        session_number,
-        pain_score,
-        subjective_report,
-        functional_progress,
-        next_plan
-      `)
-      .eq(
-        'rehabilitation_case_id',
-        id
+    if (sessionResponse.error) {
+      setError(
+        sessionResponse.error.message
       )
-      .order('session_date', {
-        ascending: false,
-      })
+      setLoading(false)
+      return
+    }
 
-    if (sessionError) {
-      setError(sessionError.message)
+    if (goalResponse.error) {
+      setError(
+        goalResponse.error.message
+      )
       setLoading(false)
       return
     }
 
     setSessions(
-      (sessionData ??
+      (sessionResponse.data ??
         []) as RehabSession[]
+    )
+
+    setGoals(
+      (goalResponse.data ??
+        []) as RehabGoal[]
     )
 
     setLoading(false)
@@ -355,6 +444,143 @@ export default function RehabCase() {
     await loadCase()
   }
 
+  async function addGoal() {
+    if (!id) return
+
+    if (!goalDescription.trim()) {
+      setError(
+        'Please enter a goal description.'
+      )
+      return
+    }
+
+    setSavingGoal(true)
+    setError(null)
+
+    const {
+      error: insertError,
+    } = await supabase
+      .from('rehabilitation_goals')
+      .insert({
+        rehabilitation_case_id: id,
+
+        goal_description:
+          goalDescription.trim(),
+
+        baseline_value:
+          baselineValue
+            ? Number(baselineValue)
+            : null,
+
+        current_value:
+          currentValue
+            ? Number(currentValue)
+            : baselineValue
+              ? Number(baselineValue)
+              : null,
+
+        target_value:
+          targetValue
+            ? Number(targetValue)
+            : null,
+
+        target_unit:
+          targetUnit.trim() ||
+          null,
+
+        target_date:
+          targetDate || null,
+
+        goal_status:
+          'in_progress',
+      })
+
+    if (insertError) {
+      setError(
+        insertError.message
+      )
+      setSavingGoal(false)
+      return
+    }
+
+    setGoalDescription('')
+    setBaselineValue('')
+    setCurrentValue('')
+    setTargetValue('')
+    setTargetUnit('kg')
+    setTargetDate('')
+    setShowGoalForm(false)
+
+    setSavingGoal(false)
+
+    await loadCase()
+  }
+
+  async function updateGoal(
+    goal: RehabGoal,
+    current: string,
+    status: string
+  ) {
+    const {
+      error: updateError,
+    } = await supabase
+      .from('rehabilitation_goals')
+      .update({
+        current_value:
+          current === ''
+            ? null
+            : Number(current),
+
+        goal_status:
+          status,
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        'id',
+        goal.id
+      )
+
+    if (updateError) {
+      setError(
+        updateError.message
+      )
+      return
+    }
+
+    await loadCase()
+  }
+
+  async function deleteGoal(
+    goalId: string
+  ) {
+    const confirmed =
+      window.confirm(
+        'Delete this rehabilitation goal?'
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    const {
+      error: deleteError,
+    } = await supabase
+      .from('rehabilitation_goals')
+      .delete()
+      .eq('id', goalId)
+
+    if (deleteError) {
+      setError(
+        deleteError.message
+      )
+      return
+    }
+
+    await loadCase()
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">
@@ -367,21 +593,15 @@ export default function RehabCase() {
     )
   }
 
-  if (
-    error &&
-    !rehabCase
-  ) {
+  if (!rehabCase) {
     return (
       <div className="stack">
         <div className="error-message">
-          {error}
+          {error ||
+            'Rehabilitation case not found.'}
         </div>
       </div>
     )
-  }
-
-  if (!rehabCase) {
-    return null
   }
 
   return (
@@ -479,14 +699,21 @@ export default function RehabCase() {
         </div>
 
         <div>
-          <Activity size={18} />
+          <Target size={18} />
 
           <span>
-            PROGRESS
+            GOALS
           </span>
 
           <strong>
-            {progressPercent}%
+            {
+              goals.filter(
+                (goal) =>
+                  goal.goal_status ===
+                  'achieved'
+              ).length
+            }
+            /{goals.length}
           </strong>
         </div>
 
@@ -517,9 +744,7 @@ export default function RehabCase() {
           </div>
 
           <div>
-            <h2>
-              Worker
-            </h2>
+            <h2>Worker</h2>
 
             <p>
               Worker and occupational
@@ -532,15 +757,13 @@ export default function RehabCase() {
         <div className="form-grid">
 
           <label>
-            <span>
-              Worker
-            </span>
+            <span>Worker</span>
 
             <input
               value={
                 worker
                   ? `${worker.first_name} ${worker.last_name}`
-                  : 'Unavailable'
+                  : ''
               }
               disabled
             />
@@ -594,92 +817,224 @@ export default function RehabCase() {
       <div className="panel">
 
         <h2>
-          Clinical Referral
+          Rehabilitation Goals
         </h2>
 
-        <div className="form-grid">
+        <p>
+          Track measurable functional
+          targets during rehabilitation.
+        </p>
 
-          <label>
-            <span>
-              Body Region
-            </span>
+        <button
+          className="primary-button"
+          onClick={() =>
+            setShowGoalForm(
+              !showGoalForm
+            )
+          }
+          style={{
+            marginTop: 15,
+            marginBottom: 20,
+          }}
+        >
+          <Plus size={16} />
+          Add Goal
+        </button>
 
-            <input
-              value={formatLabel(
-                rehabCase.affected_body_region
-              )}
-              disabled
-            />
-          </label>
+        {showGoalForm && (
+          <div
+            style={{
+              marginBottom: 25,
+            }}
+          >
 
-          <label>
-            <span>
-              Primary Condition
-            </span>
+            <label>
+              <span>
+                Goal Description *
+              </span>
 
-            <input
-              value={
-                rehabCase.primary_condition ||
-                'Not recorded'
-              }
-              disabled
-            />
-          </label>
+              <input
+                value={
+                  goalDescription
+                }
+                onChange={(event) =>
+                  setGoalDescription(
+                    event.target.value
+                  )
+                }
+                placeholder="e.g. Lift 25 kg safely from floor to waist"
+              />
+            </label>
 
-        </div>
+            <div className="form-grid">
 
-        <label>
-          <span>
-            Referral Reason
-          </span>
+              <label>
+                <span>
+                  Baseline
+                </span>
 
-          <textarea
-            rows={4}
-            value={
-              rehabCase.referral_reason ||
-              ''
-            }
-            disabled
-          />
-        </label>
+                <input
+                  type="number"
+                  value={
+                    baselineValue
+                  }
+                  onChange={(event) =>
+                    setBaselineValue(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
 
-      </div>
+              <label>
+                <span>
+                  Target
+                </span>
 
-      <div className="panel">
+                <input
+                  type="number"
+                  value={
+                    targetValue
+                  }
+                  onChange={(event) =>
+                    setTargetValue(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
 
-        <h2>
-          Rehabilitation Plan
-        </h2>
+              <label>
+                <span>
+                  Unit
+                </span>
 
-        <label>
-          <span>
-            Restrictions
-          </span>
+                <select
+                  value={
+                    targetUnit
+                  }
+                  onChange={(event) =>
+                    setTargetUnit(
+                      event.target.value
+                    )
+                  }
+                >
+                  <option value="kg">
+                    kg
+                  </option>
 
-          <textarea
-            rows={4}
-            value={
-              rehabCase.restrictions ||
-              ''
-            }
-            disabled
-          />
-        </label>
+                  <option value="repetitions">
+                    repetitions
+                  </option>
 
-        <label>
-          <span>
-            Rehabilitation Goals
-          </span>
+                  <option value="minutes">
+                    minutes
+                  </option>
 
-          <textarea
-            rows={5}
-            value={
-              rehabCase.rehabilitation_goals ||
-              ''
-            }
-            disabled
-          />
-        </label>
+                  <option value="seconds">
+                    seconds
+                  </option>
+
+                  <option value="metres">
+                    metres
+                  </option>
+
+                  <option value="degrees">
+                    degrees
+                  </option>
+
+                  <option value="%">
+                    %
+                  </option>
+
+                </select>
+              </label>
+
+              <label>
+                <span>
+                  Target Date
+                </span>
+
+                <input
+                  type="date"
+                  value={
+                    targetDate
+                  }
+                  onChange={(event) =>
+                    setTargetDate(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+            </div>
+
+            <button
+              className="primary-button"
+              onClick={addGoal}
+              disabled={savingGoal}
+            >
+              <Save size={16} />
+
+              {savingGoal
+                ? 'Saving...'
+                : 'Save Goal'}
+            </button>
+
+          </div>
+        )}
+
+        {goals.length === 0 ? (
+          <p>
+            No measurable goals have
+            been added yet.
+          </p>
+        ) : (
+          <div className="fce-report-table-wrap">
+
+            <table className="fce-report-table">
+
+              <thead>
+                <tr>
+                  <th>Goal</th>
+                  <th>Baseline</th>
+                  <th>Current</th>
+                  <th>Target</th>
+                  <th>
+                    Target Date
+                  </th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                {goals.map(
+                  (goal) => (
+                    <GoalRow
+                      key={goal.id}
+                      goal={goal}
+                      formatDate={
+                        formatDate
+                      }
+                      updateGoal={
+                        updateGoal
+                      }
+                      deleteGoal={
+                        deleteGoal
+                      }
+                    />
+                  )
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+        )}
 
       </div>
 
@@ -831,14 +1186,9 @@ export default function RehabCase() {
 
               <thead>
                 <tr>
-                  <th>
-                    Session
-                  </th>
+                  <th>Session</th>
                   <th>Date</th>
                   <th>Pain</th>
-                  <th>
-                    Subjective
-                  </th>
                   <th>
                     Functional Progress
                   </th>
@@ -874,11 +1224,6 @@ export default function RehabCase() {
                       </td>
 
                       <td>
-                        {session.subjective_report ||
-                          '—'}
-                      </td>
-
-                      <td>
                         {session.functional_progress ||
                           '—'}
                       </td>
@@ -900,6 +1245,185 @@ export default function RehabCase() {
 
       </div>
 
+      <div className="panel">
+
+        <h2>
+          Case Progress
+        </h2>
+
+        <p>
+          Session completion:
+          {' '}
+          <strong>
+            {progressPercent}%
+          </strong>
+        </p>
+
+        <p>
+          Goal achievement:
+          {' '}
+          <strong>
+            {
+              goals.filter(
+                (goal) =>
+                  goal.goal_status ===
+                  'achieved'
+              ).length
+            }
+            {' of '}
+            {goals.length}
+          </strong>
+        </p>
+
+      </div>
+
     </div>
+  )
+}
+
+function GoalRow({
+  goal,
+  formatDate,
+  updateGoal,
+  deleteGoal,
+}: {
+  goal: RehabGoal
+  formatDate: (
+    value:
+      | string
+      | null
+      | undefined
+  ) => string
+  updateGoal: (
+    goal: RehabGoal,
+    current: string,
+    status: string
+  ) => Promise<void>
+  deleteGoal: (
+    id: string
+  ) => Promise<void>
+}) {
+  const [current, setCurrent] =
+    useState(
+      goal.current_value !== null
+        ? String(goal.current_value)
+        : ''
+    )
+
+  const [status, setStatus] =
+    useState(goal.goal_status)
+
+  return (
+    <tr>
+
+      <td>
+        <strong>
+          {goal.goal_description}
+        </strong>
+      </td>
+
+      <td>
+        {goal.baseline_value ??
+          '—'}{' '}
+        {goal.target_unit || ''}
+      </td>
+
+      <td>
+        <input
+          type="number"
+          value={current}
+          onChange={(event) =>
+            setCurrent(
+              event.target.value
+            )
+          }
+          style={{
+            width: 90,
+          }}
+        />
+      </td>
+
+      <td>
+        {goal.target_value ??
+          '—'}{' '}
+        {goal.target_unit || ''}
+      </td>
+
+      <td>
+        {formatDate(
+          goal.target_date
+        )}
+      </td>
+
+      <td>
+        <select
+          value={status}
+          onChange={(event) =>
+            setStatus(
+              event.target.value
+            )
+          }
+        >
+          <option value="not_started">
+            Not Started
+          </option>
+
+          <option value="in_progress">
+            In Progress
+          </option>
+
+          <option value="achieved">
+            Achieved
+          </option>
+
+          <option value="partially_achieved">
+            Partially Achieved
+          </option>
+
+          <option value="not_achieved">
+            Not Achieved
+          </option>
+
+          <option value="cancelled">
+            Cancelled
+          </option>
+        </select>
+      </td>
+
+      <td>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+          }}
+        >
+          <button
+            className="secondary-button"
+            onClick={() =>
+              updateGoal(
+                goal,
+                current,
+                status
+              )
+            }
+          >
+            <CheckCircle2
+              size={15}
+            />
+            Update
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={() =>
+              deleteGoal(goal.id)
+            }
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </td>
+
+    </tr>
   )
 }
