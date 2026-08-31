@@ -1,11 +1,10 @@
 import {
-  AlertTriangle,
+  Activity,
   ArrowLeft,
   CheckCircle2,
-  ClipboardCheck,
   Save,
-  ShieldCheck,
-  TrendingDown,
+  ShieldAlert,
+  Stethoscope,
 } from 'lucide-react'
 
 import {
@@ -42,25 +41,20 @@ type Worker = {
 type JobProfile = {
   id: string
   title: string
-  physical_demand_level: string | null
 }
 
-type Result = {
+type FceResult = {
   id: string
-  test_category: string
   test_name: string
-  side: string | null
+  test_category: string
   measured_value: number | null
   required_value: number | null
   unit: string | null
   result: string | null
-  repetitions: number | null
-  duration_seconds: number | null
   movement_quality: string | null
   assistance_required: string | null
   symptoms_reported: string | null
   assessor_rating: string | null
-  notes: string | null
 }
 
 export default function FceOutcome() {
@@ -77,7 +71,7 @@ export default function FceOutcome() {
     useState<JobProfile | null>(null)
 
   const [results, setResults] =
-    useState<Result[]>([])
+    useState<FceResult[]>([])
 
   const [finalOutcome, setFinalOutcome] =
     useState('')
@@ -100,15 +94,13 @@ export default function FceOutcome() {
     useState<string | null>(null)
 
   useEffect(() => {
-    loadOutcome()
+    if (id) {
+      loadOutcome()
+    }
   }, [id])
 
   async function loadOutcome() {
-    if (!id) {
-      setError('Assessment not found.')
-      setLoading(false)
-      return
-    }
+    if (!id) return
 
     setLoading(true)
     setError(null)
@@ -130,229 +122,233 @@ export default function FceOutcome() {
       .eq('id', id)
       .single()
 
-    if (assessmentError) {
-      setError(assessmentError.message)
+    if (
+      assessmentError ||
+      !assessmentData
+    ) {
+      setError(
+        assessmentError?.message ||
+          'Assessment not found.'
+      )
       setLoading(false)
       return
     }
 
-    const typedAssessment =
+    const loadedAssessment =
       assessmentData as Assessment
 
-    setAssessment(typedAssessment)
+    setAssessment(loadedAssessment)
 
     setFinalOutcome(
-      typedAssessment.final_outcome || ''
+      loadedAssessment.final_outcome ||
+        ''
     )
 
     setRestrictions(
-      typedAssessment.restrictions || ''
+      loadedAssessment.restrictions ||
+        ''
     )
 
     setRecommendations(
-      typedAssessment.recommendations || ''
+      loadedAssessment.recommendations ||
+        ''
     )
 
-    const {
-      data: workerData,
-      error: workerError,
-    } = await supabase
-      .from('workers')
-      .select(`
-        id,
-        employee_number,
-        first_name,
-        last_name,
-        job_profile_id
-      `)
-      .eq(
-        'id',
-        typedAssessment.worker_id
-      )
-      .single()
+    const [
+      workerResponse,
+      resultResponse,
+    ] = await Promise.all([
+      supabase
+        .from('workers')
+        .select(`
+          id,
+          employee_number,
+          first_name,
+          last_name,
+          job_profile_id
+        `)
+        .eq(
+          'id',
+          loadedAssessment.worker_id
+        )
+        .single(),
 
-    if (workerError) {
-      setError(workerError.message)
+      supabase
+        .from('fce_results')
+        .select(`
+          id,
+          test_name,
+          test_category,
+          measured_value,
+          required_value,
+          unit,
+          result,
+          movement_quality,
+          assistance_required,
+          symptoms_reported,
+          assessor_rating
+        `)
+        .eq(
+          'assessment_id',
+          id
+        ),
+    ])
+
+    if (workerResponse.error) {
+      setError(
+        workerResponse.error.message
+      )
       setLoading(false)
       return
     }
 
-    const typedWorker =
-      workerData as Worker
+    const loadedWorker =
+      workerResponse.data as Worker
 
-    setWorker(typedWorker)
+    setWorker(loadedWorker)
 
-    if (typedWorker.job_profile_id) {
+    if (
+      loadedWorker.job_profile_id
+    ) {
       const {
-        data: profileData,
-        error: profileError,
+        data: jobData,
       } = await supabase
         .from('job_profiles')
-        .select(`
-          id,
-          title,
-          physical_demand_level
-        `)
+        .select('id,title')
         .eq(
           'id',
-          typedWorker.job_profile_id
+          loadedWorker.job_profile_id
         )
-        .maybeSingle()
+        .single()
 
-      if (profileError) {
-        setError(profileError.message)
-        setLoading(false)
-        return
+      if (jobData) {
+        setJobProfile(
+          jobData as JobProfile
+        )
       }
-
-      setJobProfile(
-        profileData as JobProfile | null
-      )
     }
 
-    const {
-      data: resultData,
-      error: resultError,
-    } = await supabase
-      .from('fce_results')
-      .select(`
-        id,
-        test_category,
-        test_name,
-        side,
-        measured_value,
-        required_value,
-        unit,
-        result,
-        repetitions,
-        duration_seconds,
-        movement_quality,
-        assistance_required,
-        symptoms_reported,
-        assessor_rating,
-        notes
-      `)
-      .eq(
-        'assessment_id',
-        typedAssessment.id
+    if (resultResponse.error) {
+      setError(
+        resultResponse.error.message
       )
-      .order('test_category')
-
-    if (resultError) {
-      setError(resultError.message)
       setLoading(false)
       return
     }
 
     setResults(
-      (resultData ?? []) as Result[]
+      (resultResponse.data ??
+        []) as FceResult[]
     )
 
     setLoading(false)
   }
 
-  const analysis = useMemo(() => {
-    const tested = results.filter(
-      (item) =>
-        item.result &&
-        item.result !== 'not_tested'
-    )
-
-    const passed = tested.filter(
-      (item) =>
-        item.result === 'pass'
-    )
-
-    const borderline = tested.filter(
-      (item) =>
-        item.result === 'borderline'
-    )
-
-    const failed = tested.filter(
-      (item) =>
-        item.result === 'fail'
-    )
-
-    const numericGaps =
-      results.filter(
-        (item) =>
-          item.measured_value !== null &&
-          item.required_value !== null &&
-          Number(
-            item.required_value
-          ) > 0 &&
-          Number(
-            item.measured_value
-          ) <
-            Number(
-              item.required_value
-            )
-      )
-
-    const functionalConcerns =
-      results.filter(
-        (item) =>
-          item.assessor_rating ===
-            'borderline' ||
-          item.assessor_rating ===
-            'fail' ||
-          item.movement_quality ===
-            'poor' ||
-          item.movement_quality ===
-            'unable' ||
-          (
-            item.assistance_required &&
-            item.assistance_required !==
-              'none'
-          ) ||
-          Boolean(
-            item.symptoms_reported?.trim()
-          )
-      )
-
-    return {
-      tested,
-      passed,
-      borderline,
-      failed,
-      numericGaps,
-      functionalConcerns,
-    }
-  }, [results])
-
-  const suggestedOutcome =
+  const analysis =
     useMemo(() => {
-      if (
-        analysis.tested.length === 0
+      const tested =
+        results.filter(
+          (item) =>
+            item.result &&
+            item.result !==
+              'not_tested'
+        )
+
+      const passed =
+        tested.filter(
+          (item) =>
+            item.result === 'pass'
+        )
+
+      const borderline =
+        tested.filter(
+          (item) =>
+            item.result ===
+            'borderline'
+        )
+
+      const failed =
+        tested.filter(
+          (item) =>
+            item.result === 'fail'
+        )
+
+      const numericGaps =
+        results.filter(
+          (item) =>
+            item.measured_value !==
+              null &&
+            item.required_value !==
+              null &&
+            item.required_value > 0 &&
+            item.measured_value <
+              item.required_value
+        )
+
+      const functionalConcerns =
+        results.filter(
+          (item) =>
+            item.assessor_rating ===
+              'borderline' ||
+            item.assessor_rating ===
+              'fail' ||
+            item.movement_quality ===
+              'poor' ||
+            item.movement_quality ===
+              'unable' ||
+            (
+              item.assistance_required &&
+              item.assistance_required !==
+                'none'
+            ) ||
+            Boolean(
+              item.symptoms_reported?.trim()
+            )
+        )
+
+      let suggestedOutcome =
+        'reassessment_required'
+
+      if (tested.length === 0) {
+        suggestedOutcome =
+          'reassessment_required'
+      } else if (
+        failed.length === 0 &&
+        borderline.length === 0
       ) {
-        return 'reassessment_required'
+        suggestedOutcome = 'fit'
+      } else if (
+        failed.length === 0 &&
+        borderline.length > 0
+      ) {
+        suggestedOutcome =
+          'fit_with_restrictions'
+      } else if (
+        failed.length <= 2
+      ) {
+        suggestedOutcome =
+          'rehabilitation'
+      } else {
+        suggestedOutcome =
+          'temporarily_unfit'
       }
 
-      if (
-        analysis.failed.length === 0 &&
-        analysis.borderline.length === 0
-      ) {
-        return 'fit'
+      return {
+        tested,
+        passed,
+        borderline,
+        failed,
+        numericGaps,
+        functionalConcerns,
+        suggestedOutcome,
       }
-
-      if (
-        analysis.failed.length === 0 &&
-        analysis.borderline.length > 0
-      ) {
-        return 'fit_with_restrictions'
-      }
-
-      if (
-        analysis.failed.length <= 2
-      ) {
-        return 'rehabilitation'
-      }
-
-      return 'temporarily_unfit'
-    }, [analysis])
+    }, [results])
 
   function formatLabel(
-    value: string | null | undefined
+    value:
+      | string
+      | null
+      | undefined
   ) {
     if (!value) {
       return 'Not recorded'
@@ -368,80 +364,9 @@ export default function FceOutcome() {
       )
   }
 
-  function resultClass(
-    value: string | null
-  ) {
-    if (value === 'pass') {
-      return 'pass'
-    }
-
-    if (value === 'fail') {
-      return 'fail'
-    }
-
-    if (value === 'borderline') {
-      return 'borderline'
-    }
-
-    return 'not_tested'
-  }
-
-  function getPerformance(
-    item: Result
-  ) {
-    if (
-      item.measured_value !== null
-    ) {
-      return `${item.measured_value} ${
-        item.unit || ''
-      }`
-    }
-
-    const parts: string[] = []
-
-    if (
-      item.repetitions !== null
-    ) {
-      parts.push(
-        `${item.repetitions} reps`
-      )
-    }
-
-    if (
-      item.duration_seconds !== null
-    ) {
-      parts.push(
-        `${item.duration_seconds} sec`
-      )
-    }
-
-    if (
-      item.movement_quality
-    ) {
-      parts.push(
-        `Movement: ${formatLabel(
-          item.movement_quality
-        )}`
-      )
-    }
-
-    if (
-      item.assistance_required
-    ) {
-      parts.push(
-        `Assistance: ${formatLabel(
-          item.assistance_required
-        )}`
-      )
-    }
-
-    return parts.length > 0
-      ? parts.join(' • ')
-      : 'No performance details'
-  }
-
   async function completeAssessment() {
     if (
+      !id ||
       !assessment ||
       !worker
     ) {
@@ -450,7 +375,7 @@ export default function FceOutcome() {
 
     if (!finalOutcome) {
       setError(
-        'Please select the final assessor outcome.'
+        'Please select a final outcome.'
       )
       return
     }
@@ -480,10 +405,7 @@ export default function FceOutcome() {
         updated_at:
           new Date().toISOString(),
       })
-      .eq(
-        'id',
-        assessment.id
-      )
+      .eq('id', id)
 
     if (assessmentError) {
       setError(
@@ -517,7 +439,20 @@ export default function FceOutcome() {
     setSaving(false)
 
     navigate(
-      `/assessments/${assessment.id}/record`
+      `/assessments/${id}/record`
+    )
+  }
+
+  function referToRehabilitation() {
+    if (
+      !assessment?.worker_id ||
+      !assessment?.id
+    ) {
+      return
+    }
+
+    navigate(
+      `/rehabilitation/new?worker=${assessment.worker_id}&assessment=${assessment.id}`
     )
   }
 
@@ -527,78 +462,58 @@ export default function FceOutcome() {
         <div className="loading-spinner" />
 
         <p>
-          Analysing FCE results...
+          Loading FCE outcome...
         </p>
       </div>
     )
   }
 
-  if (
-    error &&
-    !assessment
-  ) {
+  if (!assessment) {
     return (
       <div className="stack">
-
         <div className="error-message">
-          {error}
+          {error ||
+            'Assessment not found.'}
         </div>
-
-        <button
-          className="secondary-button"
-          onClick={() =>
-            navigate('/assessments')
-          }
-        >
-          <ArrowLeft size={16} />
-          Assessments
-        </button>
-
       </div>
     )
-  }
-
-  if (
-    !assessment ||
-    !worker
-  ) {
-    return null
   }
 
   return (
     <div className="stack">
 
-      {/* HEADER */}
-
       <div className="page-heading">
 
         <div>
+          <button
+            className="secondary-button"
+            onClick={() =>
+              navigate(
+                `/assessments/${id}`
+              )
+            }
+            style={{
+              marginBottom: 14,
+            }}
+          >
+            <ArrowLeft size={16} />
+            Back to Testing
+          </button>
+
           <span className="eyebrow">
-            FCE DECISION SUPPORT
+            FCE OUTCOME
           </span>
 
           <h1>
-            FCE Outcome
+            Functional Capacity Outcome
           </h1>
 
           <p>
-            Review functional capacity
-            findings before recording the
-            final professional outcome.
+            Review recorded functional
+            findings and make the final
+            professional determination.
           </p>
         </div>
-
-        <button
-          className="secondary-button"
-          onClick={() =>
-            navigate(
-              `/assessments/${assessment.id}`
-            )
-          }
-        >
-          <ArrowLeft size={16} />
-          Back to Testing
-        </button>
 
       </div>
 
@@ -608,479 +523,286 @@ export default function FceOutcome() {
         </div>
       )}
 
-      {/* WORKER */}
+      <div className="fce-summary-row">
 
-      <div className="worker-summary-card">
+        <div>
+          <Activity size={18} />
 
-        <div className="worker-avatar-large">
-          <ClipboardCheck size={24} />
+          <span>
+            TESTED
+          </span>
+
+          <strong>
+            {analysis.tested.length}
+          </strong>
         </div>
 
         <div>
-          <span>WORKER</span>
+          <CheckCircle2 size={18} />
 
-          <h3>
-            {worker.first_name}{' '}
-            {worker.last_name}
-          </h3>
+          <span>
+            PASS
+          </span>
 
-          <p>
-            Employee number:{' '}
-            {worker.employee_number}
-          </p>
+          <strong>
+            {analysis.passed.length}
+          </strong>
+        </div>
+
+        <div>
+          <ShieldAlert size={18} />
+
+          <span>
+            BORDERLINE
+          </span>
+
+          <strong>
+            {analysis.borderline.length}
+          </strong>
+        </div>
+
+        <div>
+          <ShieldAlert size={18} />
+
+          <span>
+            FAILED
+          </span>
+
+          <strong>
+            {analysis.failed.length}
+          </strong>
         </div>
 
       </div>
 
-      {/* JOB */}
+      <div className="panel">
+
+        <h2>
+          Worker
+        </h2>
+
+        <div className="form-grid">
+
+          <label>
+            <span>
+              Worker
+            </span>
+
+            <input
+              value={
+                worker
+                  ? `${worker.first_name} ${worker.last_name}`
+                  : ''
+              }
+              disabled
+            />
+          </label>
+
+          <label>
+            <span>
+              Employee Number
+            </span>
+
+            <input
+              value={
+                worker?.employee_number ||
+                ''
+              }
+              disabled
+            />
+          </label>
+
+          <label>
+            <span>
+              Job Profile
+            </span>
+
+            <input
+              value={
+                jobProfile?.title ||
+                'Not assigned'
+              }
+              disabled
+            />
+          </label>
+
+        </div>
+
+      </div>
 
       <div className="panel">
 
-        <span className="eyebrow">
-          JOB DEMAND PROFILE
-        </span>
-
-        <h3>
-          {jobProfile?.title ||
-            'No job profile assigned'}
-        </h3>
+        <h2>
+          Decision Support
+        </h2>
 
         <p>
-          Physical demand level:{' '}
+          Based on the recorded
+          Pass, Borderline and Fail
+          findings, the system suggests:
+        </p>
+
+        <div
+          style={{
+            marginTop: 15,
+          }}
+        >
           <strong>
             {formatLabel(
-              jobProfile
-                ?.physical_demand_level
+              analysis.suggestedOutcome
             )}
           </strong>
-        </p>
-
-      </div>
-
-      {/* SUMMARY */}
-
-      <div className="panel">
-
-        <h2>
-          Capacity Summary
-        </h2>
-
-        <div className="fce-summary-row">
-
-          <div>
-            <span>TESTED</span>
-
-            <strong>
-              {analysis.tested.length}
-            </strong>
-          </div>
-
-          <div>
-            <span>PASS</span>
-
-            <strong>
-              {analysis.passed.length}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              BORDERLINE
-            </span>
-
-            <strong>
-              {analysis.borderline.length}
-            </strong>
-          </div>
-
-          <div>
-            <span>FAIL</span>
-
-            <strong>
-              {analysis.failed.length}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              JOB-DEMAND GAPS
-            </span>
-
-            <strong>
-              {
-                analysis.numericGaps
-                  .length
-              }
-            </strong>
-          </div>
-
         </div>
 
-      </div>
-
-      {/* TEST RESULTS */}
-
-      <div className="panel">
-
-        <h2>
-          Functional Test Review
-        </h2>
-
-        <p>
-          Review both measured capacity
-          and assessor-rated functional
-          performance.
-        </p>
-
-        <div className="fce-report-table-wrap">
-
-          <table className="fce-report-table">
-
-            <thead>
-              <tr>
-                <th>Test</th>
-                <th>Performance</th>
-                <th>Job Demand</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-
-            <tbody>
-
-              {results.map(
-                (item) => (
-                  <tr key={item.id}>
-
-                    <td>
-                      <strong>
-                        {item.test_name}
-                      </strong>
-
-                      {item.side && (
-                        <small>
-                          {formatLabel(
-                            item.side
-                          )}
-                        </small>
-                      )}
-                    </td>
-
-                    <td>
-                      {getPerformance(
-                        item
-                      )}
-
-                      {item
-                        .symptoms_reported && (
-                        <small>
-                          Symptoms:{' '}
-                          {
-                            item
-                              .symptoms_reported
-                          }
-                        </small>
-                      )}
-                    </td>
-
-                    <td>
-                      {item.required_value !==
-                      null
-                        ? `${
-                            item.required_value
-                          } ${
-                            item.unit ||
-                            ''
-                          }`
-                        : 'Assessor-rated task'}
-                    </td>
-
-                    <td>
-                      <span
-                        className={`badge ${resultClass(
-                          item.result
-                        )}`}
-                      >
-                        {formatLabel(
-                          item.result ||
-                            'not_tested'
-                        )}
-                      </span>
-                    </td>
-
-                  </tr>
-                )
-              )}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-      {/* CAPACITY GAPS */}
-
-      <div className="panel">
-
-        <div className="assessment-section-title">
-
-          <div className="assessment-section-icon">
-            <TrendingDown
-              size={20}
-            />
-          </div>
-
-          <div>
-            <h2>
-              Job-Demand Capacity Gaps
-            </h2>
-
-            <p>
-              Numeric tests where measured
-              worker capacity was below the
-              recorded job requirement.
-            </p>
-          </div>
-
-        </div>
-
-        {analysis.numericGaps
-          .length === 0 ? (
-          <div className="fce-no-gap">
-
-            <CheckCircle2
-              size={20}
-            />
-
-            <span>
-              No numeric job-demand
-              deficits identified.
-            </span>
-
-          </div>
-        ) : (
-          <div className="fce-gap-list">
-
-            {analysis.numericGaps.map(
-              (item) => {
-                const gap =
-                  Number(
-                    item.required_value
-                  ) -
-                  Number(
-                    item.measured_value
-                  )
-
-                return (
-                  <div key={item.id}>
-
-                    <strong>
-                      {item.test_name}
-                    </strong>
-
-                    <span>
-                      Worker:{' '}
-                      {
-                        item.measured_value
-                      }{' '}
-                      {item.unit || ''}
-                    </span>
-
-                    <span>
-                      Required:{' '}
-                      {
-                        item.required_value
-                      }{' '}
-                      {item.unit || ''}
-                    </span>
-
-                    <span>
-                      Gap:{' '}
-                      {gap.toFixed(1)}{' '}
-                      {item.unit || ''}
-                    </span>
-
-                  </div>
-                )
-              }
-            )}
-
-          </div>
-        )}
-
-      </div>
-
-      {/* FUNCTIONAL CONCERNS */}
-
-      <div className="panel">
-
-        <div className="assessment-section-title">
-
-          <div className="assessment-section-icon">
-            <AlertTriangle
-              size={20}
-            />
-          </div>
-
-          <div>
-            <h2>
-              Functional Concerns
-            </h2>
-
-            <p>
-              Assessor-rated tasks with
-              symptoms, reduced movement
-              quality, assistance or an
-              adverse rating.
-            </p>
-          </div>
-
-        </div>
-
-        {analysis.functionalConcerns
-          .length === 0 ? (
-          <div className="fce-no-gap">
-
-            <CheckCircle2
-              size={20}
-            />
-
-            <span>
-              No functional concerns
-              recorded.
-            </span>
-
-          </div>
-        ) : (
-          <div className="stack">
-
-            {analysis.functionalConcerns.map(
-              (item) => (
-                <div
-                  className="fce-full-row"
-                  key={item.id}
-                >
-
-                  <span>
-                    {item.test_name}
-                  </span>
-
-                  <strong>
-                    {formatLabel(
-                      item.assessor_rating ||
-                        item.result
-                    )}
-                  </strong>
-
-                  {item.movement_quality && (
-                    <p>
-                      Movement quality:{' '}
-                      {formatLabel(
-                        item.movement_quality
-                      )}
-                    </p>
-                  )}
-
-                  {item
-                    .assistance_required && (
-                    <p>
-                      Assistance:{' '}
-                      {formatLabel(
-                        item
-                          .assistance_required
-                      )}
-                    </p>
-                  )}
-
-                  {item
-                    .symptoms_reported && (
-                    <p>
-                      Symptoms:{' '}
-                      {
-                        item
-                          .symptoms_reported
-                      }
-                    </p>
-                  )}
-
-                  {item.notes && (
-                    <p>
-                      Notes:{' '}
-                      {item.notes}
-                    </p>
-                  )}
-
-                </div>
-              )
-            )}
-
-          </div>
-        )}
-
-      </div>
-
-      {/* DECISION SUPPORT */}
-
-      <div className="panel">
-
-        <div className="assessment-section-title">
-
-          <div className="assessment-section-icon">
-            <ShieldCheck size={20} />
-          </div>
-
-          <div>
-            <h2>
-              Decision Support
-            </h2>
-
-            <p>
-              SpineSync has summarised the
-              recorded test results. The
-              assessor remains responsible
-              for the final professional
-              determination.
-            </p>
-          </div>
-
-        </div>
-
-        <div className="fce-decision-card">
-
-          <div>
-            <span>
-              SYSTEM SUGGESTION
-            </span>
-
-            <h2>
-              {formatLabel(
-                suggestedOutcome
-              )}
-            </h2>
-          </div>
-
-          <ShieldCheck size={34} />
-
-        </div>
-
-        <p>
-          This suggestion is based on the
-          recorded Pass, Borderline and
-          Fail results only. It is not an
+        <p
+          style={{
+            marginTop: 15,
+          }}
+        >
+          This suggestion is decision
+          support only. It is not an
           automated medical or fitness
-          certification.
+          certification. The assessor
+          remains responsible for the
+          final professional decision.
         </p>
 
       </div>
 
-      {/* FINAL ASSESSOR DECISION */}
+      {analysis.numericGaps.length >
+        0 && (
+        <div className="panel">
 
-      <div className="panel stack">
+          <h2>
+            Capacity Gaps
+          </h2>
 
-        <h2>
-          Final Assessor Decision
-        </h2>
+          <div className="fce-report-table-wrap">
+
+            <table className="fce-report-table">
+
+              <thead>
+                <tr>
+                  <th>Test</th>
+                  <th>Measured</th>
+                  <th>Required</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {analysis.numericGaps.map(
+                  (item) => (
+                    <tr key={item.id}>
+                      <td>
+                        {item.test_name}
+                      </td>
+
+                      <td>
+                        {item.measured_value ??
+                          '—'}{' '}
+                        {item.unit || ''}
+                      </td>
+
+                      <td>
+                        {item.required_value ??
+                          '—'}{' '}
+                        {item.unit || ''}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+      )}
+
+      {analysis.functionalConcerns.length >
+        0 && (
+        <div className="panel">
+
+          <h2>
+            Functional Concerns
+          </h2>
+
+          <div className="fce-report-table-wrap">
+
+            <table className="fce-report-table">
+
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Rating</th>
+                  <th>
+                    Movement Quality
+                  </th>
+                  <th>
+                    Assistance
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {analysis.functionalConcerns.map(
+                  (item) => (
+                    <tr key={item.id}>
+                      <td>
+                        {item.test_name}
+                      </td>
+
+                      <td>
+                        {formatLabel(
+                          item.assessor_rating ||
+                            item.result
+                        )}
+                      </td>
+
+                      <td>
+                        {formatLabel(
+                          item.movement_quality
+                        )}
+                      </td>
+
+                      <td>
+                        {formatLabel(
+                          item.assistance_required
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+      )}
+
+      <div className="panel">
+
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <Stethoscope size={20} />
+          </div>
+
+          <div>
+            <h2>
+              Final Assessor Decision
+            </h2>
+
+            <p>
+              Record the final functional
+              outcome and recommendations.
+            </p>
+          </div>
+
+        </div>
 
         <label>
           <span>
@@ -1096,7 +818,7 @@ export default function FceOutcome() {
             }
           >
             <option value="">
-              Select final outcome
+              Select outcome
             </option>
 
             <option value="fit">
@@ -1112,7 +834,7 @@ export default function FceOutcome() {
             </option>
 
             <option value="rehabilitation">
-              Rehabilitation Required
+              Rehabilitation
             </option>
 
             <option value="reassessment_required">
@@ -1134,7 +856,7 @@ export default function FceOutcome() {
                 event.target.value
               )
             }
-            placeholder="Record temporary or permanent work restrictions where applicable"
+            placeholder="Record any functional or work restrictions"
           />
         </label>
 
@@ -1144,30 +866,56 @@ export default function FceOutcome() {
           </span>
 
           <textarea
-            rows={4}
+            rows={5}
             value={recommendations}
             onChange={(event) =>
               setRecommendations(
                 event.target.value
               )
             }
-            placeholder="Rehabilitation, work modification, reassessment or occupational health recommendations"
+            placeholder="Record rehabilitation, reassessment or return-to-work recommendations"
           />
         </label>
 
-        <button
-          className="primary-button"
-          onClick={
-            completeAssessment
-          }
-          disabled={saving}
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginTop: 20,
+          }}
         >
-          <Save size={16} />
 
-          {saving
-            ? 'Completing FCE...'
-            : 'Complete FCE'}
-        </button>
+          <button
+            className="primary-button"
+            onClick={completeAssessment}
+            disabled={
+              saving ||
+              !finalOutcome
+            }
+          >
+            <Save size={16} />
+
+            {saving
+              ? 'Saving...'
+              : 'Complete Assessment'}
+          </button>
+
+          {finalOutcome ===
+            'rehabilitation' && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={
+                referToRehabilitation
+              }
+            >
+              <Activity size={16} />
+              Refer to Rehabilitation
+            </button>
+          )}
+
+        </div>
 
       </div>
 
