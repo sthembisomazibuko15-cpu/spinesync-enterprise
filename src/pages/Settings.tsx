@@ -1,10 +1,12 @@
 import {
   Save,
-  ShieldCheck,
+  Upload,
   UserRound,
 } from 'lucide-react'
 
 import {
+  ChangeEvent,
+  FormEvent,
   useEffect,
   useState,
 } from 'react'
@@ -32,6 +34,9 @@ export default function Settings() {
   const [saving, setSaving] =
     useState(false)
 
+  const [uploading, setUploading] =
+    useState(false)
+
   const [message, setMessage] =
     useState<string | null>(null)
 
@@ -56,14 +61,17 @@ export default function Settings() {
     setError(null)
 
     const {
-      data: userData,
-      error: userError,
+      data: authData,
+      error: authError,
     } = await supabase.auth.getUser()
 
-    if (userError || !userData.user) {
+    if (
+      authError ||
+      !authData.user
+    ) {
       setError(
-        userError?.message ||
-          'Unable to identify the logged-in user.'
+        authError?.message ||
+          'Unable to identify logged-in user.'
       )
       setLoading(false)
       return
@@ -84,7 +92,7 @@ export default function Settings() {
         email,
         signature_url
       `)
-      .eq('id', userData.user.id)
+      .eq('id', authData.user.id)
       .single()
 
     if (profileError) {
@@ -93,7 +101,8 @@ export default function Settings() {
       return
     }
 
-    const typedProfile = data as Profile
+    const typedProfile =
+      data as Profile
 
     setProfile(typedProfile)
 
@@ -109,9 +118,7 @@ export default function Settings() {
       phone:
         typedProfile.phone || '',
       email:
-        typedProfile.email ||
-        userData.user.email ||
-        '',
+        typedProfile.email || '',
     })
 
     setLoading(false)
@@ -128,11 +135,13 @@ export default function Settings() {
   }
 
   async function saveProfile(
-    event: React.FormEvent
+    event: FormEvent
   ) {
     event.preventDefault()
 
-    if (!profile) return
+    if (!profile) {
+      return
+    }
 
     setSaving(true)
     setMessage(null)
@@ -178,11 +187,177 @@ export default function Settings() {
     await loadProfile()
   }
 
+  async function uploadSignature(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      event.target.files?.[0]
+
+    if (!file || !profile) {
+      return
+    }
+
+    setUploading(true)
+    setMessage(null)
+    setError(null)
+
+    const allowedTypes = [
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+    ]
+
+    if (
+      !allowedTypes.includes(file.type)
+    ) {
+      setError(
+        'Please upload a PNG, JPG, or WEBP image.'
+      )
+      setUploading(false)
+      event.target.value = ''
+      return
+    }
+
+    if (
+      file.size >
+      2 * 1024 * 1024
+    ) {
+      setError(
+        'Signature image must be smaller than 2 MB.'
+      )
+      setUploading(false)
+      event.target.value = ''
+      return
+    }
+
+    const extension =
+      file.name
+        .split('.')
+        .pop()
+        ?.toLowerCase() || 'png'
+
+    const filePath =
+      `${profile.id}/signature.${extension}`
+
+    /*
+      Remove previous signature file
+      if one exists.
+    */
+
+    if (profile.signature_url) {
+      await supabase.storage
+        .from('signatures')
+        .remove([
+          profile.signature_url,
+        ])
+    }
+
+    const {
+      error: uploadError,
+    } = await supabase.storage
+      .from('signatures')
+      .upload(
+        filePath,
+        file,
+        {
+          cacheControl: '3600',
+          upsert: true,
+        }
+      )
+
+    if (uploadError) {
+      setError(uploadError.message)
+      setUploading(false)
+      event.target.value = ''
+      return
+    }
+
+    const {
+      error: profileUpdateError,
+    } = await supabase
+      .from('profiles')
+      .update({
+        signature_url:
+          filePath,
+      })
+      .eq('id', profile.id)
+
+    if (profileUpdateError) {
+      setError(
+        profileUpdateError.message
+      )
+      setUploading(false)
+      event.target.value = ''
+      return
+    }
+
+    setMessage(
+      'Signature uploaded successfully.'
+    )
+
+    setUploading(false)
+    event.target.value = ''
+
+    await loadProfile()
+  }
+
+  async function removeSignature() {
+    if (
+      !profile ||
+      !profile.signature_url
+    ) {
+      return
+    }
+
+    setUploading(true)
+    setMessage(null)
+    setError(null)
+
+    const {
+      error: storageError,
+    } = await supabase.storage
+      .from('signatures')
+      .remove([
+        profile.signature_url,
+      ])
+
+    if (storageError) {
+      setError(storageError.message)
+      setUploading(false)
+      return
+    }
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from('profiles')
+      .update({
+        signature_url: null,
+      })
+      .eq('id', profile.id)
+
+    if (updateError) {
+      setError(updateError.message)
+      setUploading(false)
+      return
+    }
+
+    setMessage(
+      'Signature removed.'
+    )
+
+    setUploading(false)
+
+    await loadProfile()
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">
         <div className="loading-spinner" />
-        <p>Loading settings...</p>
+        <p>
+          Loading settings...
+        </p>
       </div>
     )
   }
@@ -194,15 +369,16 @@ export default function Settings() {
 
         <div>
           <span className="eyebrow">
-            SPINESYNC ENTERPRISE
+            ACCOUNT
           </span>
 
-          <h1>Settings</h1>
+          <h1>
+            Settings
+          </h1>
 
           <p>
             Manage your professional
-            information used across
-            SpineSync reports.
+            assessor information.
           </p>
         </div>
 
@@ -221,7 +397,7 @@ export default function Settings() {
       )}
 
       <form
-        className="panel"
+        className="panel stack"
         onSubmit={saveProfile}
       >
 
@@ -237,7 +413,7 @@ export default function Settings() {
             </h3>
 
             <p>
-              These details will appear on
+              These details appear on
               completed FCE reports.
             </p>
           </div>
@@ -252,7 +428,6 @@ export default function Settings() {
             </span>
 
             <input
-              type="text"
               value={form.full_name}
               onChange={(event) =>
                 updateField(
@@ -260,7 +435,7 @@ export default function Settings() {
                   event.target.value
                 )
               }
-              placeholder="e.g. Sthembiso Mazibuko"
+              placeholder="Full professional name"
             />
           </label>
 
@@ -270,7 +445,6 @@ export default function Settings() {
             </span>
 
             <input
-              type="text"
               value={form.profession}
               onChange={(event) =>
                 updateField(
@@ -278,7 +452,7 @@ export default function Settings() {
                   event.target.value
                 )
               }
-              placeholder="e.g. Registered Biokineticist"
+              placeholder="e.g. Biokineticist"
             />
           </label>
 
@@ -288,15 +462,16 @@ export default function Settings() {
             </span>
 
             <input
-              type="text"
-              value={form.hpcsa_number}
+              value={
+                form.hpcsa_number
+              }
               onChange={(event) =>
                 updateField(
                   'hpcsa_number',
                   event.target.value
                 )
               }
-              placeholder="e.g. BK0000000"
+              placeholder="HPCSA registration number"
             />
           </label>
 
@@ -306,15 +481,16 @@ export default function Settings() {
             </span>
 
             <input
-              type="text"
-              value={form.practice_name}
+              value={
+                form.practice_name
+              }
               onChange={(event) =>
                 updateField(
                   'practice_name',
                   event.target.value
                 )
               }
-              placeholder="e.g. M&M Rehab Hub"
+              placeholder="Practice or organisation"
             />
           </label>
 
@@ -324,7 +500,6 @@ export default function Settings() {
             </span>
 
             <input
-              type="tel"
               value={form.phone}
               onChange={(event) =>
                 updateField(
@@ -332,13 +507,13 @@ export default function Settings() {
                   event.target.value
                 )
               }
-              placeholder="e.g. 082 000 0000"
+              placeholder="Contact number"
             />
           </label>
 
           <label>
             <span>
-              Email Address
+              Email
             </span>
 
             <input
@@ -350,44 +525,121 @@ export default function Settings() {
                   event.target.value
                 )
               }
-              placeholder="e.g. assessor@example.com"
+              placeholder="Professional email"
             />
           </label>
 
         </div>
 
-        <div className="settings-note">
+        <button
+          type="submit"
+          className="primary-button"
+          disabled={saving}
+        >
+          <Save size={16} />
 
-          <ShieldCheck size={18} />
-
-          <p>
-            SpineSync will use these details
-            to identify the professional who
-            completed the assessment. The
-            final fitness decision remains
-            the assessor's professional
-            determination.
-          </p>
-
-        </div>
-
-        <div className="form-actions">
-
-          <button
-            type="submit"
-            className="primary-button"
-            disabled={saving}
-          >
-            <Save size={16} />
-
-            {saving
-              ? 'Saving...'
-              : 'Save Assessor Profile'}
-          </button>
-
-        </div>
+          {saving
+            ? 'Saving...'
+            : 'Save Profile'}
+        </button>
 
       </form>
+
+      <div className="panel stack">
+
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <Upload size={20} />
+          </div>
+
+          <div>
+            <h3>
+              Digital Signature
+            </h3>
+
+            <p>
+              Upload the signature that
+              will appear on completed
+              FCE reports.
+            </p>
+          </div>
+
+        </div>
+
+        {profile?.signature_url ? (
+          <div className="stack">
+
+            <div
+              style={{
+                padding: '20px',
+                border:
+                  '1px solid #e5e7eb',
+                borderRadius: '12px',
+                background: '#fff',
+              }}
+            >
+              <p>
+                Signature uploaded.
+              </p>
+
+              <small>
+                {profile.signature_url}
+              </small>
+            </div>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={
+                removeSignature
+              }
+              disabled={uploading}
+            >
+              Remove Signature
+            </button>
+
+          </div>
+        ) : (
+          <p>
+            No signature uploaded yet.
+          </p>
+        )}
+
+        <label
+          className="secondary-button"
+          style={{
+            width: 'fit-content',
+            cursor: 'pointer',
+          }}
+        >
+          <Upload size={16} />
+
+          {uploading
+            ? 'Uploading...'
+            : profile?.signature_url
+              ? 'Replace Signature'
+              : 'Upload Signature'}
+
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={uploadSignature}
+            disabled={uploading}
+            style={{
+              display: 'none',
+            }}
+          />
+
+        </label>
+
+        <small>
+          PNG, JPG or WEBP. Maximum size
+          2 MB. A transparent PNG works
+          best.
+        </small>
+
+      </div>
 
     </div>
   )
