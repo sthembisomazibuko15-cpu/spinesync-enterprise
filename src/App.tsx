@@ -18,6 +18,7 @@ import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
 import NewAssessment from './pages/NewAssessment'
 import Onboarding from './pages/Onboarding'
+import Rehabilitation from './pages/Rehabilitation'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import WorkerProfile from './pages/WorkerProfile'
@@ -98,6 +99,11 @@ export default function App() {
         <Route
           path="assessments/:id/record"
           element={<FceRecord />}
+        />
+
+        <Route
+          path="rehabilitation"
+          element={<Rehabilitation />}
         />
 
         <Route
