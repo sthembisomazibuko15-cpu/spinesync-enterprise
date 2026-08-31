@@ -89,6 +89,7 @@ type AssessorProfile = {
   practice_name: string | null
   phone: string | null
   email: string | null
+  signature_url: string | null
 }
 
 export default function FceRecord() {
@@ -118,6 +119,9 @@ export default function FceRecord() {
 
   const [assessor, setAssessor] =
     useState<AssessorProfile | null>(null)
+
+  const [signatureSrc, setSignatureSrc] =
+    useState<string | null>(null)
 
   const [loading, setLoading] =
     useState(true)
@@ -309,7 +313,8 @@ export default function FceRecord() {
               hpcsa_number,
               practice_name,
               phone,
-              email
+              email,
+              signature_url
             `)
             .eq(
               'id',
@@ -340,11 +345,38 @@ export default function FceRecord() {
     setJob(jobResponse.data)
 
     if (assessorResponse.data) {
-      setAssessor(
+      const assessorData =
         assessorResponse.data as AssessorProfile
-      )
+
+      setAssessor(assessorData)
+
+      if (assessorData.signature_url) {
+        const {
+          data: signedData,
+          error: signedError,
+        } = await supabase.storage
+          .from('signatures')
+          .createSignedUrl(
+            assessorData.signature_url,
+            3600
+          )
+
+        if (
+          !signedError &&
+          signedData?.signedUrl
+        ) {
+          setSignatureSrc(
+            signedData.signedUrl
+          )
+        } else {
+          setSignatureSrc(null)
+        }
+      } else {
+        setSignatureSrc(null)
+      }
     } else {
       setAssessor(null)
+      setSignatureSrc(null)
     }
 
     setLoading(false)
@@ -390,7 +422,6 @@ export default function FceRecord() {
       passed,
       borderline,
       failed,
-      comparable,
       gaps,
     }
   }, [results])
@@ -505,8 +536,6 @@ export default function FceRecord() {
   return (
     <div className="fce-report-document">
 
-      {/* SCREEN CONTROLS */}
-
       <div className="report-screen-controls no-print">
 
         <button
@@ -533,9 +562,7 @@ export default function FceRecord() {
 
       </div>
 
-      {/* =====================================
-          PAGE 1
-          ===================================== */}
+      {/* PAGE 1 */}
 
       <section className="fce-print-page">
 
@@ -607,12 +634,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* WORKER */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <User size={18} />
 
             <div>
@@ -625,16 +649,12 @@ export default function FceRecord() {
                 information
               </p>
             </div>
-
           </div>
 
           <div className="fce-info-table">
 
             <div>
-              <span>
-                Worker
-              </span>
-
+              <span>Worker</span>
               <strong>
                 {worker.first_name}{' '}
                 {worker.last_name}
@@ -652,9 +672,7 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Date of Birth
-              </span>
+              <span>Date of Birth</span>
 
               <strong>
                 {formatDate(
@@ -664,14 +682,10 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Sex
-              </span>
+              <span>Sex</span>
 
               <strong>
-                {formatStatus(
-                  worker.sex
-                )}
+                {formatStatus(worker.sex)}
               </strong>
             </div>
 
@@ -679,12 +693,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* OCCUPATIONAL PLACEMENT */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <MapPin size={18} />
 
             <div>
@@ -697,16 +708,12 @@ export default function FceRecord() {
                 assigned job
               </p>
             </div>
-
           </div>
 
           <div className="fce-info-table">
 
             <div>
-              <span>
-                Operation
-              </span>
-
+              <span>Operation</span>
               <strong>
                 {operation?.name ||
                   'Not assigned'}
@@ -714,10 +721,7 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Site / Shaft
-              </span>
-
+              <span>Site / Shaft</span>
               <strong>
                 {site?.name ||
                   'Not assigned'}
@@ -725,10 +729,7 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Department
-              </span>
-
+              <span>Department</span>
               <strong>
                 {department?.name ||
                   'Not assigned'}
@@ -736,10 +737,7 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Job Profile
-              </span>
-
+              <span>Job Profile</span>
               <strong>
                 {job?.title ||
                   'Not assigned'}
@@ -750,12 +748,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* ASSESSMENT */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <ClipboardCheck size={18} />
 
             <div>
@@ -768,7 +763,6 @@ export default function FceRecord() {
                 details
               </p>
             </div>
-
           </div>
 
           <div className="fce-info-table">
@@ -814,12 +808,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* SCREENING */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <HeartPulse size={18} />
 
             <div>
@@ -832,15 +823,12 @@ export default function FceRecord() {
                 before functional testing
               </p>
             </div>
-
           </div>
 
           <div className="fce-vital-grid">
 
             <div>
-              <span>
-                PAIN
-              </span>
+              <span>PAIN</span>
 
               <strong>
                 {assessment.pain_score ??
@@ -862,65 +850,47 @@ export default function FceRecord() {
                   '—'}
               </strong>
 
-              <small>
-                mmHg
-              </small>
+              <small>mmHg</small>
             </div>
 
             <div>
-              <span>
-                RESTING HR
-              </span>
+              <span>RESTING HR</span>
 
               <strong>
                 {assessment.resting_hr ??
                   '—'}
               </strong>
 
-              <small>
-                bpm
-              </small>
+              <small>bpm</small>
             </div>
 
             <div>
-              <span>
-                BMI
-              </span>
-
+              <span>BMI</span>
               <strong>
-                {assessment.bmi ??
-                  '—'}
+                {assessment.bmi ?? '—'}
               </strong>
             </div>
 
             <div>
-              <span>
-                HEIGHT
-              </span>
+              <span>HEIGHT</span>
 
               <strong>
                 {assessment.height_cm ??
                   '—'}
               </strong>
 
-              <small>
-                cm
-              </small>
+              <small>cm</small>
             </div>
 
             <div>
-              <span>
-                WEIGHT
-              </span>
+              <span>WEIGHT</span>
 
               <strong>
                 {assessment.weight_kg ??
                   '—'}
               </strong>
 
-              <small>
-                kg
-              </small>
+              <small>kg</small>
             </div>
 
           </div>
@@ -941,12 +911,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* FINAL OUTCOME */}
-
         <div className="fce-decision-card">
 
           <div>
-
             <span>
               FINAL ASSESSOR OUTCOME
             </span>
@@ -957,7 +924,6 @@ export default function FceRecord() {
                   'pending'
               )}
             </h2>
-
           </div>
 
           <ShieldCheck size={34} />
@@ -974,17 +940,13 @@ export default function FceRecord() {
             {reportReference()}
           </span>
 
-          <span>
-            Page 1
-          </span>
+          <span>Page 1</span>
 
         </div>
 
       </section>
 
-      {/* =====================================
-          PAGE 2
-          ===================================== */}
+      {/* PAGE 2 */}
 
       <section className="fce-print-page">
 
@@ -1024,12 +986,9 @@ export default function FceRecord() {
 
         </header>
 
-        {/* CAPACITY SUMMARY */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <Activity size={18} />
 
             <div>
@@ -1042,46 +1001,33 @@ export default function FceRecord() {
                 functional performance
               </p>
             </div>
-
           </div>
 
           <div className="fce-summary-row">
 
             <div>
-              <span>
-                TESTED
-              </span>
-
+              <span>TESTED</span>
               <strong>
                 {analysis.tested}
               </strong>
             </div>
 
             <div>
-              <span>
-                PASS
-              </span>
-
+              <span>PASS</span>
               <strong>
                 {analysis.passed}
               </strong>
             </div>
 
             <div>
-              <span>
-                BORDERLINE
-              </span>
-
+              <span>BORDERLINE</span>
               <strong>
                 {analysis.borderline}
               </strong>
             </div>
 
             <div>
-              <span>
-                FAIL
-              </span>
-
+              <span>FAIL</span>
               <strong>
                 {analysis.failed}
               </strong>
@@ -1101,12 +1047,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* RESULTS */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <BriefcaseBusiness size={18} />
 
             <div>
@@ -1119,7 +1062,6 @@ export default function FceRecord() {
                 with recorded job demand
               </p>
             </div>
-
           </div>
 
           <div className="fce-report-table-wrap">
@@ -1232,12 +1174,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* CAPACITY GAPS */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <TrendingDown size={18} />
 
             <div>
@@ -1251,7 +1190,6 @@ export default function FceRecord() {
                 available job demand
               </p>
             </div>
-
           </div>
 
           {analysis.gaps.length === 0 ? (
@@ -1320,12 +1258,9 @@ export default function FceRecord() {
 
         </div>
 
-        {/* CLINICAL DECISION */}
-
         <div className="fce-report-section">
 
           <div className="fce-report-section-heading">
-
             <ShieldCheck size={18} />
 
             <div>
@@ -1339,7 +1274,6 @@ export default function FceRecord() {
                 recommendations
               </p>
             </div>
-
           </div>
 
           <div className="fce-final-outcome">
@@ -1389,8 +1323,6 @@ export default function FceRecord() {
 
         </div>
 
-        {/* ASSESSOR DECLARATION */}
-
         <div className="fce-declaration">
 
           <h2>
@@ -1421,9 +1353,7 @@ export default function FceRecord() {
           <div className="fce-signature-grid">
 
             <div>
-              <span>
-                Assessor
-              </span>
+              <span>Assessor</span>
 
               <strong>
                 {assessor?.full_name ||
@@ -1432,9 +1362,7 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Profession
-              </span>
+              <span>Profession</span>
 
               <strong>
                 {assessor?.profession ||
@@ -1465,9 +1393,7 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Contact
-              </span>
+              <span>Contact</span>
 
               <strong>
                 {assessor?.phone ||
@@ -1489,13 +1415,29 @@ export default function FceRecord() {
             </div>
 
             <div>
-              <span>
-                Signature
-              </span>
+              <span>Signature</span>
 
-              <strong>
-                __________________________
-              </strong>
+              {signatureSrc ? (
+                <img
+                  src={signatureSrc}
+                  alt="Assessor signature"
+                  style={{
+                    display: 'block',
+                    width: '150px',
+                    maxWidth: '100%',
+                    height: '55px',
+                    objectFit: 'contain',
+                    objectPosition:
+                      'left center',
+                    marginTop: '4px',
+                  }}
+                />
+              ) : (
+                <strong>
+                  __________________________
+                </strong>
+              )}
+
             </div>
 
           </div>
@@ -1512,9 +1454,7 @@ export default function FceRecord() {
             {reportReference()}
           </span>
 
-          <span>
-            Page 2
-          </span>
+          <span>Page 2</span>
 
         </div>
 
