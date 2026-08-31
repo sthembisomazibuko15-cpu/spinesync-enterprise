@@ -1,8 +1,4 @@
-import {
-  Navigate,
-  Route,
-  Routes,
-} from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
 import AppShell from './components/AppShell'
 import OrganisationRoute from './components/OrganisationRoute'
@@ -17,6 +13,7 @@ import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
 import NewAssessment from './pages/NewAssessment'
+import NewRehabCase from './pages/NewRehabCase'
 import Onboarding from './pages/Onboarding'
 import Rehabilitation from './pages/Rehabilitation'
 import Reports from './pages/Reports'
@@ -27,10 +24,7 @@ import Workers from './pages/Workers'
 export default function App() {
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={<Login />}
-      />
+      <Route path="/login" element={<Login />} />
 
       <Route
         path="/onboarding"
@@ -51,80 +45,26 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route
-          index
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
-        />
+        <Route index element={<Navigate to="/dashboard" replace />} />
 
-        <Route
-          path="dashboard"
-          element={<Dashboard />}
-        />
+        <Route path="dashboard" element={<Dashboard />} />
 
-        <Route
-          path="workers"
-          element={<Workers />}
-        />
+        <Route path="workers" element={<Workers />} />
+        <Route path="workers/:id" element={<WorkerProfile />} />
 
-        <Route
-          path="workers/:id"
-          element={<WorkerProfile />}
-        />
+        <Route path="assessments" element={<Assessments />} />
+        <Route path="assessments/new" element={<NewAssessment />} />
+        <Route path="assessments/:id" element={<FceTesting />} />
+        <Route path="assessments/:id/outcome" element={<FceOutcome />} />
+        <Route path="assessments/:id/record" element={<FceRecord />} />
 
-        <Route
-          path="assessments"
-          element={<Assessments />}
-        />
+        <Route path="rehabilitation" element={<Rehabilitation />} />
+        <Route path="rehabilitation/new" element={<NewRehabCase />} />
 
-        <Route
-          path="assessments/new"
-          element={<NewAssessment />}
-        />
-
-        <Route
-          path="assessments/:id"
-          element={<FceTesting />}
-        />
-
-        <Route
-          path="assessments/:id/outcome"
-          element={<FceOutcome />}
-        />
-
-        <Route
-          path="assessments/:id/record"
-          element={<FceRecord />}
-        />
-
-        <Route
-          path="rehabilitation"
-          element={<Rehabilitation />}
-        />
-
-        <Route
-          path="mining-structure"
-          element={<MiningStructure />}
-        />
-
-        <Route
-          path="job-profiles"
-          element={<JobProfiles />}
-        />
-
-        <Route
-          path="reports"
-          element={<Reports />}
-        />
-
-        <Route
-          path="settings"
-          element={<Settings />}
-        />
+        <Route path="mining-structure" element={<MiningStructure />} />
+        <Route path="job-profiles" element={<JobProfiles />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   )
