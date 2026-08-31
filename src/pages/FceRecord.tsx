@@ -1,15 +1,8 @@
 import {
-  Activity,
   ArrowLeft,
   BriefcaseBusiness,
-  CheckCircle2,
   ClipboardCheck,
-  HeartPulse,
-  MapPin,
   Printer,
-  ShieldCheck,
-  TrendingDown,
-  User,
 } from 'lucide-react'
 
 import {
@@ -72,13 +65,24 @@ type Result = {
   result: string | null
   pain_before: number | null
   pain_after: number | null
+  repetitions: number | null
+  duration_seconds: number | null
+  movement_quality: string | null
+  assistance_required: string | null
+  symptoms_reported: string | null
+  assessor_rating: string | null
   notes: string | null
 }
 
 type NamedItem = {
   id: string
-  name?: string
-  title?: string
+  name: string
+}
+
+type JobProfile = {
+  id: string
+  title: string
+  physical_demand_level: string | null
 }
 
 type AssessorProfile = {
@@ -114,8 +118,8 @@ export default function FceRecord() {
   const [department, setDepartment] =
     useState<NamedItem | null>(null)
 
-  const [job, setJob] =
-    useState<NamedItem | null>(null)
+  const [jobProfile, setJobProfile] =
+    useState<JobProfile | null>(null)
 
   const [assessor, setAssessor] =
     useState<AssessorProfile | null>(null)
@@ -130,10 +134,10 @@ export default function FceRecord() {
     useState<string | null>(null)
 
   useEffect(() => {
-    loadReport()
+    loadRecord()
   }, [id])
 
-  async function loadReport() {
+  async function loadRecord() {
     if (!id) {
       setError('Assessment not found.')
       setLoading(false)
@@ -218,165 +222,214 @@ export default function FceRecord() {
 
     setWorker(typedWorker)
 
-    const [
-      resultsResponse,
-      operationResponse,
-      siteResponse,
-      departmentResponse,
-      jobResponse,
-      assessorResponse,
-    ] = await Promise.all([
-      supabase
-        .from('fce_results')
-        .select(`
-          id,
-          test_category,
-          test_name,
-          side,
-          measured_value,
-          required_value,
-          unit,
-          result,
-          pain_before,
-          pain_after,
-          notes
-        `)
-        .eq(
-          'assessment_id',
-          typedAssessment.id
-        )
-        .order('test_category'),
-
-      typedWorker.operation_id
-        ? supabase
-            .from('operations')
-            .select('id,name')
-            .eq(
-              'id',
-              typedWorker.operation_id
-            )
-            .maybeSingle()
-        : Promise.resolve({
-            data: null,
-            error: null,
-          }),
-
-      typedWorker.site_id
-        ? supabase
-            .from('sites')
-            .select('id,name')
-            .eq(
-              'id',
-              typedWorker.site_id
-            )
-            .maybeSingle()
-        : Promise.resolve({
-            data: null,
-            error: null,
-          }),
-
-      typedWorker.department_id
-        ? supabase
-            .from('departments')
-            .select('id,name')
-            .eq(
-              'id',
-              typedWorker.department_id
-            )
-            .maybeSingle()
-        : Promise.resolve({
-            data: null,
-            error: null,
-          }),
-
-      typedWorker.job_profile_id
-        ? supabase
-            .from('job_profiles')
-            .select('id,title')
-            .eq(
-              'id',
-              typedWorker.job_profile_id
-            )
-            .maybeSingle()
-        : Promise.resolve({
-            data: null,
-            error: null,
-          }),
-
-      typedAssessment.assessor_id
-        ? supabase
-            .from('profiles')
-            .select(`
-              id,
-              full_name,
-              profession,
-              hpcsa_number,
-              practice_name,
-              phone,
-              email,
-              signature_url
-            `)
-            .eq(
-              'id',
-              typedAssessment.assessor_id
-            )
-            .maybeSingle()
-        : Promise.resolve({
-            data: null,
-            error: null,
-          }),
-    ])
-
-    if (resultsResponse.error) {
-      setError(
-        resultsResponse.error.message
+    const {
+      data: resultData,
+      error: resultError,
+    } = await supabase
+      .from('fce_results')
+      .select(`
+        id,
+        test_category,
+        test_name,
+        side,
+        measured_value,
+        required_value,
+        unit,
+        result,
+        pain_before,
+        pain_after,
+        repetitions,
+        duration_seconds,
+        movement_quality,
+        assistance_required,
+        symptoms_reported,
+        assessor_rating,
+        notes
+      `)
+      .eq(
+        'assessment_id',
+        typedAssessment.id
       )
+      .order('test_category')
+
+    if (resultError) {
+      setError(resultError.message)
       setLoading(false)
       return
     }
 
     setResults(
-      (resultsResponse.data ?? []) as Result[]
+      (resultData ?? []) as Result[]
     )
 
-    setOperation(operationResponse.data)
-    setSite(siteResponse.data)
-    setDepartment(departmentResponse.data)
-    setJob(jobResponse.data)
+    const linkedQueries: PromiseLike<any>[] = []
 
-    if (assessorResponse.data) {
-      const assessorData =
-        assessorResponse.data as AssessorProfile
-
-      setAssessor(assessorData)
-
-      if (assessorData.signature_url) {
-        const {
-          data: signedData,
-          error: signedError,
-        } = await supabase.storage
-          .from('signatures')
-          .createSignedUrl(
-            assessorData.signature_url,
-            3600
+    if (typedWorker.operation_id) {
+      linkedQueries.push(
+        supabase
+          .from('operations')
+          .select('id,name')
+          .eq(
+            'id',
+            typedWorker.operation_id
           )
-
-        if (
-          !signedError &&
-          signedData?.signedUrl
-        ) {
-          setSignatureSrc(
-            signedData.signedUrl
-          )
-        } else {
-          setSignatureSrc(null)
-        }
-      } else {
-        setSignatureSrc(null)
-      }
+          .maybeSingle()
+      )
     } else {
-      setAssessor(null)
-      setSignatureSrc(null)
+      linkedQueries.push(
+        Promise.resolve({
+          data: null,
+          error: null,
+        })
+      )
+    }
+
+    if (typedWorker.site_id) {
+      linkedQueries.push(
+        supabase
+          .from('sites')
+          .select('id,name')
+          .eq(
+            'id',
+            typedWorker.site_id
+          )
+          .maybeSingle()
+      )
+    } else {
+      linkedQueries.push(
+        Promise.resolve({
+          data: null,
+          error: null,
+        })
+      )
+    }
+
+    if (typedWorker.department_id) {
+      linkedQueries.push(
+        supabase
+          .from('departments')
+          .select('id,name')
+          .eq(
+            'id',
+            typedWorker.department_id
+          )
+          .maybeSingle()
+      )
+    } else {
+      linkedQueries.push(
+        Promise.resolve({
+          data: null,
+          error: null,
+        })
+      )
+    }
+
+    if (typedWorker.job_profile_id) {
+      linkedQueries.push(
+        supabase
+          .from('job_profiles')
+          .select(`
+            id,
+            title,
+            physical_demand_level
+          `)
+          .eq(
+            'id',
+            typedWorker.job_profile_id
+          )
+          .maybeSingle()
+      )
+    } else {
+      linkedQueries.push(
+        Promise.resolve({
+          data: null,
+          error: null,
+        })
+      )
+    }
+
+    const [
+      operationResponse,
+      siteResponse,
+      departmentResponse,
+      jobResponse,
+    ] = await Promise.all(
+      linkedQueries
+    )
+
+    setOperation(
+      operationResponse.data as
+        | NamedItem
+        | null
+    )
+
+    setSite(
+      siteResponse.data as
+        | NamedItem
+        | null
+    )
+
+    setDepartment(
+      departmentResponse.data as
+        | NamedItem
+        | null
+    )
+
+    setJobProfile(
+      jobResponse.data as
+        | JobProfile
+        | null
+    )
+
+    if (typedAssessment.assessor_id) {
+      const {
+        data: assessorData,
+        error: assessorError,
+      } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          profession,
+          hpcsa_number,
+          practice_name,
+          phone,
+          email,
+          signature_url
+        `)
+        .eq(
+          'id',
+          typedAssessment.assessor_id
+        )
+        .maybeSingle()
+
+      if (!assessorError && assessorData) {
+        const typedAssessor =
+          assessorData as AssessorProfile
+
+        setAssessor(typedAssessor)
+
+        if (typedAssessor.signature_url) {
+          const {
+            data: signedData,
+            error: signedError,
+          } = await supabase.storage
+            .from('signatures')
+            .createSignedUrl(
+              typedAssessor.signature_url,
+              3600
+            )
+
+          if (
+            !signedError &&
+            signedData?.signedUrl
+          ) {
+            setSignatureSrc(
+              signedData.signedUrl
+            )
+          }
+        }
+      }
     }
 
     setLoading(false)
@@ -384,52 +437,79 @@ export default function FceRecord() {
 
   const analysis = useMemo(() => {
     const tested = results.filter(
-      (result) =>
-        result.result &&
-        result.result !== 'not_tested'
+      (item) =>
+        item.result &&
+        item.result !== 'not_tested'
     )
 
     const passed = tested.filter(
-      (result) =>
-        result.result === 'pass'
-    ).length
+      (item) =>
+        item.result === 'pass'
+    )
 
     const borderline = tested.filter(
-      (result) =>
-        result.result === 'borderline'
-    ).length
+      (item) =>
+        item.result === 'borderline'
+    )
 
     const failed = tested.filter(
-      (result) =>
-        result.result === 'fail'
-    ).length
-
-    const comparable = results.filter(
-      (result) =>
-        result.measured_value !== null &&
-        result.required_value !== null &&
-        Number(result.required_value) > 0
+      (item) =>
+        item.result === 'fail'
     )
 
-    const gaps = comparable.filter(
-      (result) =>
-        Number(result.measured_value) <
-        Number(result.required_value)
-    )
+    const numericGaps =
+      results.filter(
+        (item) =>
+          item.measured_value !== null &&
+          item.required_value !== null &&
+          Number(
+            item.required_value
+          ) > 0 &&
+          Number(
+            item.measured_value
+          ) <
+            Number(
+              item.required_value
+            )
+      )
+
+    const functionalConcerns =
+      results.filter(
+        (item) =>
+          item.assessor_rating ===
+            'borderline' ||
+          item.assessor_rating ===
+            'fail' ||
+          item.movement_quality ===
+            'poor' ||
+          item.movement_quality ===
+            'unable' ||
+          (
+            item.assistance_required &&
+            item.assistance_required !==
+              'none'
+          ) ||
+          Boolean(
+            item.symptoms_reported?.trim()
+          )
+      )
 
     return {
-      tested: tested.length,
+      tested,
       passed,
       borderline,
       failed,
-      gaps,
+      numericGaps,
+      functionalConcerns,
     }
   }, [results])
 
-  function formatStatus(
+  function formatLabel(
     value: string | null | undefined
   ) {
-    if (!value) return 'Not recorded'
+    if (!value) {
+      return 'Not recorded'
+    }
 
     return value
       .split('_')
@@ -444,65 +524,104 @@ export default function FceRecord() {
   function formatDate(
     value: string | null
   ) {
-    if (!value) return 'Not recorded'
+    if (!value) {
+      return 'Not recorded'
+    }
 
-    return new Date(
-      `${value}T00:00:00`
-    ).toLocaleDateString(
+    return new Date(value).toLocaleDateString(
       'en-ZA',
       {
         day: '2-digit',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
       }
     )
   }
 
-  function resultClass(
-    value: string | null
+  function displayValue(
+    value:
+      | string
+      | number
+      | null
+      | undefined
   ) {
-    if (value === 'pass') {
-      return 'pass'
+    if (
+      value === null ||
+      value === undefined ||
+      value === ''
+    ) {
+      return 'Not recorded'
     }
 
-    if (value === 'fail') {
-      return 'fail'
-    }
-
-    if (value === 'borderline') {
-      return 'borderline'
-    }
-
-    return 'not_tested'
+    return String(value)
   }
 
-  function outcomeClass(
-    value: string | null
+  function getPerformance(
+    item: Result
   ) {
-    if (value === 'fit') {
-      return 'pass'
+    if (
+      item.measured_value !== null
+    ) {
+      return `${item.measured_value} ${
+        item.unit || ''
+      }`
+    }
+
+    const parts: string[] = []
+
+    if (
+      item.repetitions !== null
+    ) {
+      parts.push(
+        `${item.repetitions} reps`
+      )
     }
 
     if (
-      value === 'temporarily_unfit'
+      item.duration_seconds !== null
     ) {
-      return 'fail'
+      parts.push(
+        `${item.duration_seconds} sec`
+      )
     }
 
-    return 'borderline'
+    if (
+      item.movement_quality
+    ) {
+      parts.push(
+        `Movement: ${formatLabel(
+          item.movement_quality
+        )}`
+      )
+    }
+
+    if (
+      item.assistance_required
+    ) {
+      parts.push(
+        `Assistance: ${formatLabel(
+          item.assistance_required
+        )}`
+      )
+    }
+
+    return parts.length > 0
+      ? parts.join(' • ')
+      : 'Not recorded'
   }
 
-  function reportReference() {
-    return `FCE-${assessment?.id
-      .slice(0, 8)
-      .toUpperCase()}`
-  }
+  const reportReference =
+    assessment
+      ? `FCE-${assessment.id
+          .slice(0, 8)
+          .toUpperCase()}`
+      : ''
 
   if (loading) {
     return (
       <div className="auth-loading">
         <div className="loading-spinner" />
-        <p>Preparing FCE report...</p>
+        <p>Loading FCE report...</p>
       </div>
     )
   }
@@ -514,111 +633,32 @@ export default function FceRecord() {
   ) {
     return (
       <div className="stack">
-
         <div className="error-message">
           {error ||
-            'Assessment not found.'}
+            'Unable to load FCE report.'}
         </div>
 
         <button
           className="secondary-button"
           onClick={() =>
-            navigate('/workers')
+            navigate('/assessments')
           }
         >
-          Back to workers
+          <ArrowLeft size={16} />
+          Assessments
         </button>
-
       </div>
     )
   }
 
   return (
-    <div className="fce-report-document">
+    <div className="stack">
 
-      <div className="report-screen-controls no-print">
+      <div className="page-heading no-print">
 
-        <button
-          className="secondary-button"
-          onClick={() =>
-            navigate(
-              `/workers/${worker.id}`
-            )
-          }
-        >
-          <ArrowLeft size={16} />
-          Worker Profile
-        </button>
-
-        <button
-          className="primary-button"
-          onClick={() =>
-            window.print()
-          }
-        >
-          <Printer size={16} />
-          Print / Save PDF
-        </button>
-
-      </div>
-
-      {/* PAGE 1 */}
-
-      <section className="fce-print-page">
-
-        <header className="fce-report-header">
-
-          <div className="fce-brand">
-
-            <div className="fce-brand-mark">
-              S
-            </div>
-
-            <div>
-              <strong>
-                SpineSync Enterprise
-              </strong>
-
-              <span>
-                Mining MSK & Functional
-                Capacity Platform
-              </span>
-            </div>
-
-          </div>
-
-          <div className="fce-report-meta">
-
-            <div>
-              <span>
-                REPORT REFERENCE
-              </span>
-
-              <strong>
-                {reportReference()}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                ASSESSMENT DATE
-              </span>
-
-              <strong>
-                {formatDate(
-                  assessment.assessment_date
-                )}
-              </strong>
-            </div>
-
-          </div>
-
-        </header>
-
-        <div className="fce-report-title">
-
-          <span>
-            OCCUPATIONAL HEALTH
+        <div>
+          <span className="eyebrow">
+            COMPLETED ASSESSMENT
           </span>
 
           <h1>
@@ -627,34 +667,99 @@ export default function FceRecord() {
           </h1>
 
           <p>
-            Functional capacity findings
-            and comparison with recorded
-            occupational job demands.
+            Review or print the completed
+            assessment record.
           </p>
-
         </div>
 
-        <div className="fce-report-section">
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <button
+            className="secondary-button"
+            onClick={() =>
+              navigate(
+                `/workers/${worker.id}`
+              )
+            }
+          >
+            <ArrowLeft size={16} />
+            Worker
+          </button>
 
-          <div className="fce-report-section-heading">
-            <User size={18} />
+          <button
+            className="primary-button"
+            onClick={() =>
+              window.print()
+            }
+          >
+            <Printer size={16} />
+            Print Report
+          </button>
+        </div>
+
+      </div>
+
+      <div className="fce-report">
+
+        {/* PAGE 1 */}
+
+        <section className="fce-report-page">
+
+          <header className="fce-report-header">
+
+            <div>
+              <span className="eyebrow">
+                SPINESYNC ENTERPRISE
+              </span>
+
+              <h1>
+                Functional Capacity
+                Evaluation
+              </h1>
+
+              <p>
+                Occupational Functional
+                Capacity Report
+              </p>
+            </div>
+
+            <div>
+              <strong>
+                {reportReference}
+              </strong>
+
+              <span>
+                {formatDate(
+                  assessment.assessment_date
+                )}
+              </span>
+            </div>
+
+          </header>
+
+          <div className="assessment-section-title">
+
+            <div className="assessment-section-icon">
+              <ClipboardCheck size={18} />
+            </div>
 
             <div>
               <h2>
                 Worker Identification
               </h2>
-
-              <p>
-                Employee and demographic
-                information
-              </p>
             </div>
+
           </div>
 
           <div className="fce-info-table">
 
             <div>
-              <span>Worker</span>
+              <span>Worker Name</span>
               <strong>
                 {worker.first_name}{' '}
                 {worker.last_name}
@@ -665,15 +770,15 @@ export default function FceRecord() {
               <span>
                 Employee Number
               </span>
-
               <strong>
                 {worker.employee_number}
               </strong>
             </div>
 
             <div>
-              <span>Date of Birth</span>
-
+              <span>
+                Date of Birth
+              </span>
               <strong>
                 {formatDate(
                   worker.date_of_birth
@@ -683,37 +788,57 @@ export default function FceRecord() {
 
             <div>
               <span>Sex</span>
-
               <strong>
-                {formatStatus(worker.sex)}
+                {formatLabel(worker.sex)}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Employment Status
+              </span>
+              <strong>
+                {formatLabel(
+                  worker.employment_status
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Current Fitness Status
+              </span>
+              <strong>
+                {formatLabel(
+                  worker.fitness_status
+                )}
               </strong>
             </div>
 
           </div>
 
-        </div>
+          <div className="assessment-section-title">
 
-        <div className="fce-report-section">
-
-          <div className="fce-report-section-heading">
-            <MapPin size={18} />
+            <div className="assessment-section-icon">
+              <BriefcaseBusiness
+                size={18}
+              />
+            </div>
 
             <div>
               <h2>
                 Occupational Placement
               </h2>
-
-              <p>
-                Mining operation and
-                assigned job
-              </p>
             </div>
+
           </div>
 
           <div className="fce-info-table">
 
             <div>
-              <span>Operation</span>
+              <span>
+                Mining Operation
+              </span>
               <strong>
                 {operation?.name ||
                   'Not assigned'}
@@ -739,29 +864,30 @@ export default function FceRecord() {
             <div>
               <span>Job Profile</span>
               <strong>
-                {job?.title ||
+                {jobProfile?.title ||
                   'Not assigned'}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Physical Demand Level
+              </span>
+              <strong>
+                {formatLabel(
+                  jobProfile
+                    ?.physical_demand_level
+                )}
               </strong>
             </div>
 
           </div>
 
-        </div>
-
-        <div className="fce-report-section">
-
-          <div className="fce-report-section-heading">
-            <ClipboardCheck size={18} />
-
+          <div className="assessment-section-title">
             <div>
               <h2>
                 Assessment Information
               </h2>
-
-              <p>
-                Referral and assessment
-                details
-              </p>
             </div>
           </div>
 
@@ -771,10 +897,20 @@ export default function FceRecord() {
               <span>
                 Assessment Type
               </span>
-
               <strong>
-                {formatStatus(
+                {formatLabel(
                   assessment.assessment_type
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Assessment Date
+              </span>
+              <strong>
+                {formatDate(
+                  assessment.assessment_date
                 )}
               </strong>
             </div>
@@ -783,223 +919,206 @@ export default function FceRecord() {
               <span>
                 Assessment Status
               </span>
-
               <strong>
-                {formatStatus(
+                {formatLabel(
                   assessment.assessment_status
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Referral Reason
+              </span>
+              <strong>
+                {displayValue(
+                  assessment.referral_reason
                 )}
               </strong>
             </div>
 
           </div>
 
-          <div className="fce-full-row">
-
-            <span>
-              Referral Reason
-            </span>
-
-            <strong>
-              {assessment.referral_reason ||
-                'Not recorded'}
-            </strong>
-
-          </div>
-
-        </div>
-
-        <div className="fce-report-section">
-
-          <div className="fce-report-section-heading">
-            <HeartPulse size={18} />
-
+          <div className="assessment-section-title">
             <div>
               <h2>
-                Pre-Test Clinical Screening
+                Pre-Test Clinical
+                Screening
               </h2>
-
-              <p>
-                Baseline measurements
-                before functional testing
-              </p>
             </div>
           </div>
 
-          <div className="fce-vital-grid">
+          <div className="fce-info-table">
 
             <div>
-              <span>PAIN</span>
-
+              <span>Pain Score</span>
               <strong>
-                {assessment.pain_score ??
-                  '—'}
-                /10
+                {assessment.pain_score !==
+                null
+                  ? `${assessment.pain_score}/10`
+                  : 'Not recorded'}
+              </strong>
+            </div>
+
+            <div>
+              <span>Blood Pressure</span>
+              <strong>
+                {assessment.systolic_bp !==
+                  null &&
+                assessment.diastolic_bp !==
+                  null
+                  ? `${assessment.systolic_bp}/${assessment.diastolic_bp} mmHg`
+                  : 'Not recorded'}
               </strong>
             </div>
 
             <div>
               <span>
-                BLOOD PRESSURE
+                Resting Heart Rate
               </span>
-
               <strong>
-                {assessment.systolic_bp ??
-                  '—'}
-                /
-                {assessment.diastolic_bp ??
-                  '—'}
+                {assessment.resting_hr !==
+                null
+                  ? `${assessment.resting_hr} bpm`
+                  : 'Not recorded'}
               </strong>
-
-              <small>mmHg</small>
             </div>
 
             <div>
-              <span>RESTING HR</span>
-
+              <span>Height</span>
               <strong>
-                {assessment.resting_hr ??
-                  '—'}
+                {assessment.height_cm !==
+                null
+                  ? `${assessment.height_cm} cm`
+                  : 'Not recorded'}
               </strong>
+            </div>
 
-              <small>bpm</small>
+            <div>
+              <span>Weight</span>
+              <strong>
+                {assessment.weight_kg !==
+                null
+                  ? `${assessment.weight_kg} kg`
+                  : 'Not recorded'}
+              </strong>
             </div>
 
             <div>
               <span>BMI</span>
               <strong>
-                {assessment.bmi ?? '—'}
+                {displayValue(
+                  assessment.bmi
+                )}
               </strong>
             </div>
 
             <div>
-              <span>HEIGHT</span>
-
+              <span>
+                Pre-Test Status
+              </span>
               <strong>
-                {assessment.height_cm ??
-                  '—'}
+                {formatLabel(
+                  assessment.pre_test_status
+                )}
               </strong>
-
-              <small>cm</small>
-            </div>
-
-            <div>
-              <span>WEIGHT</span>
-
-              <strong>
-                {assessment.weight_kg ??
-                  '—'}
-              </strong>
-
-              <small>kg</small>
             </div>
 
           </div>
 
-          <div className="fce-full-row">
+          <div className="assessment-section-title">
+            <div>
+              <h2>
+                Final Assessor Outcome
+              </h2>
+            </div>
+          </div>
 
+          <div className="fce-decision-card">
+
+            <div>
+              <span>
+                FINAL OUTCOME
+              </span>
+
+              <h2>
+                {formatLabel(
+                  assessment.final_outcome
+                )}
+              </h2>
+            </div>
+
+          </div>
+
+          <div className="fce-info-table">
+
+            <div>
+              <span>Restrictions</span>
+              <strong>
+                {displayValue(
+                  assessment.restrictions
+                )}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Recommendations
+              </span>
+              <strong>
+                {displayValue(
+                  assessment.recommendations
+                )}
+              </strong>
+            </div>
+
+          </div>
+
+          <footer className="fce-report-footer">
             <span>
-              Pre-Test Status
+              {reportReference}
             </span>
 
-            <strong>
-              {formatStatus(
-                assessment.pre_test_status
-              )}
-            </strong>
+            <span>Page 1 of 2</span>
+          </footer>
 
-          </div>
+        </section>
 
-        </div>
+        {/* PAGE 2 */}
 
-        <div className="fce-decision-card">
+        <section className="fce-report-page">
 
-          <div>
-            <span>
-              FINAL ASSESSOR OUTCOME
-            </span>
+          <header className="fce-report-header compact">
 
-            <h2>
-              {formatStatus(
-                assessment.final_outcome ||
-                  'pending'
-              )}
-            </h2>
-          </div>
+            <div>
+              <span className="eyebrow">
+                SPINESYNC ENTERPRISE
+              </span>
 
-          <ShieldCheck size={34} />
-
-        </div>
-
-        <div className="fce-page-footer">
-
-          <span>
-            SpineSync Enterprise
-          </span>
-
-          <span>
-            {reportReference()}
-          </span>
-
-          <span>Page 1</span>
-
-        </div>
-
-      </section>
-
-      {/* PAGE 2 */}
-
-      <section className="fce-print-page">
-
-        <header className="fce-report-header compact">
-
-          <div className="fce-brand">
-
-            <div className="fce-brand-mark">
-              S
+              <h2>
+                Functional Test Results
+              </h2>
             </div>
 
             <div>
               <strong>
-                SpineSync Enterprise
+                {worker.first_name}{' '}
+                {worker.last_name}
               </strong>
 
               <span>
-                Functional Capacity
-                Evaluation
+                {worker.employee_number}
               </span>
             </div>
 
-          </div>
+          </header>
 
-          <div className="fce-worker-mini">
-
-            <strong>
-              {worker.first_name}{' '}
-              {worker.last_name}
-            </strong>
-
-            <span>
-              {worker.employee_number}
-            </span>
-
-          </div>
-
-        </header>
-
-        <div className="fce-report-section">
-
-          <div className="fce-report-section-heading">
-            <Activity size={18} />
-
+          <div className="assessment-section-title">
             <div>
               <h2>
-                Functional Capacity Summary
+                Functional Capacity
+                Summary
               </h2>
-
-              <p>
-                Summary of recorded
-                functional performance
-              </p>
             </div>
           </div>
 
@@ -1008,59 +1127,38 @@ export default function FceRecord() {
             <div>
               <span>TESTED</span>
               <strong>
-                {analysis.tested}
+                {analysis.tested.length}
               </strong>
             </div>
 
             <div>
               <span>PASS</span>
               <strong>
-                {analysis.passed}
+                {analysis.passed.length}
               </strong>
             </div>
 
             <div>
               <span>BORDERLINE</span>
               <strong>
-                {analysis.borderline}
+                {analysis.borderline.length}
               </strong>
             </div>
 
             <div>
               <span>FAIL</span>
               <strong>
-                {analysis.failed}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                CAPACITY GAPS
-              </span>
-
-              <strong>
-                {analysis.gaps.length}
+                {analysis.failed.length}
               </strong>
             </div>
 
           </div>
 
-        </div>
-
-        <div className="fce-report-section">
-
-          <div className="fce-report-section-heading">
-            <BriefcaseBusiness size={18} />
-
+          <div className="assessment-section-title">
             <div>
               <h2>
                 Functional Test Results
               </h2>
-
-              <p>
-                Worker capacity compared
-                with recorded job demand
-              </p>
             </div>
           </div>
 
@@ -1071,99 +1169,86 @@ export default function FceRecord() {
               <thead>
                 <tr>
                   <th>Test</th>
-                  <th>Worker</th>
-                  <th>Demand</th>
-                  <th>Comparison</th>
+                  <th>Performance</th>
+                  <th>Requirement</th>
                   <th>Result</th>
                 </tr>
               </thead>
 
               <tbody>
 
-                {results.length === 0 && (
-                  <tr>
-                    <td colSpan={5}>
-                      No functional test
-                      results recorded.
-                    </td>
-                  </tr>
-                )}
-
                 {results.map(
-                  (result) => {
-                    const comparable =
-                      result.measured_value !==
-                        null &&
-                      result.required_value !==
-                        null &&
-                      Number(
-                        result.required_value
-                      ) > 0
+                  (item) => (
+                    <tr key={item.id}>
 
-                    const percentage =
-                      comparable
-                        ? (Number(
-                            result.measured_value
-                          ) /
-                            Number(
-                              result.required_value
-                            )) *
-                          100
-                        : null
+                      <td>
+                        <strong>
+                          {item.test_name}
+                        </strong>
 
-                    return (
-                      <tr key={result.id}>
-
-                        <td>
-                          <strong>
-                            {result.test_name}
-                          </strong>
-
-                          {result.side && (
-                            <small>
-                              {formatStatus(
-                                result.side
-                              )}
-                            </small>
-                          )}
-                        </td>
-
-                        <td>
-                          {result.measured_value ??
-                            '—'}{' '}
-                          {result.unit || ''}
-                        </td>
-
-                        <td>
-                          {result.required_value ??
-                            '—'}{' '}
-                          {result.unit || ''}
-                        </td>
-
-                        <td>
-                          {percentage !== null
-                            ? `${percentage.toFixed(
-                                0
-                              )}%`
-                            : '—'}
-                        </td>
-
-                        <td>
-                          <span
-                            className={`badge ${resultClass(
-                              result.result
-                            )}`}
-                          >
-                            {formatStatus(
-                              result.result ||
-                                'not_tested'
+                        {item.side && (
+                          <small>
+                            {formatLabel(
+                              item.side
                             )}
-                          </span>
-                        </td>
+                          </small>
+                        )}
 
-                      </tr>
-                    )
-                  }
+                        <small>
+                          {formatLabel(
+                            item.test_category
+                          )}
+                        </small>
+                      </td>
+
+                      <td>
+                        {getPerformance(
+                          item
+                        )}
+
+                        {item
+                          .symptoms_reported && (
+                          <small>
+                            Symptoms:{' '}
+                            {
+                              item
+                                .symptoms_reported
+                            }
+                          </small>
+                        )}
+
+                        {item.notes && (
+                          <small>
+                            Notes:{' '}
+                            {item.notes}
+                          </small>
+                        )}
+                      </td>
+
+                      <td>
+                        {item.required_value !==
+                        null
+                          ? `${
+                              item.required_value
+                            } ${
+                              item.unit ||
+                              ''
+                            }`
+                          : item.assessor_rating
+                            ? 'Assessor-rated'
+                            : 'Not specified'}
+                      </td>
+
+                      <td>
+                        <strong>
+                          {formatLabel(
+                            item.result
+                          )}
+                        </strong>
+                      </td>
+
+                    </tr>
+                  )
                 )}
 
               </tbody>
@@ -1172,293 +1257,328 @@ export default function FceRecord() {
 
           </div>
 
-        </div>
-
-        <div className="fce-report-section">
-
-          <div className="fce-report-section-heading">
-            <TrendingDown size={18} />
-
+          <div className="assessment-section-title">
             <div>
               <h2>
                 Identified Capacity Gaps
               </h2>
-
-              <p>
-                Tests where recorded
-                capacity was below the
-                available job demand
-              </p>
             </div>
           </div>
 
-          {analysis.gaps.length === 0 ? (
-
-            <div className="fce-no-gap">
-
-              <CheckCircle2 size={20} />
-
-              <span>
-                No recorded capacity
-                deficits against available
-                numeric job demands.
-              </span>
-
-            </div>
-
+          {analysis.numericGaps.length ===
+          0 ? (
+            <p>
+              No numeric job-demand
+              capacity gaps were identified.
+            </p>
           ) : (
+            <div className="stack">
 
-            <div className="fce-gap-list">
+              {analysis.numericGaps.map(
+                (item) => (
+                  <div
+                    className="fce-full-row"
+                    key={item.id}
+                  >
+                    <strong>
+                      {item.test_name}
+                    </strong>
 
-              {analysis.gaps.map(
-                (result) => {
-                  const difference =
-                    Number(
-                      result.required_value
-                    ) -
-                    Number(
-                      result.measured_value
-                    )
+                    <p>
+                      Measured capacity:{' '}
+                      {item.measured_value}{' '}
+                      {item.unit || ''}
+                    </p>
 
-                  return (
-                    <div key={result.id}>
+                    <p>
+                      Job requirement:{' '}
+                      {item.required_value}{' '}
+                      {item.unit || ''}
+                    </p>
 
-                      <strong>
-                        {result.test_name}
-                      </strong>
-
-                      <span>
-                        Worker:{' '}
-                        {result.measured_value}{' '}
-                        {result.unit || ''}
-                      </span>
-
-                      <span>
-                        Demand:{' '}
-                        {result.required_value}{' '}
-                        {result.unit || ''}
-                      </span>
-
-                      <span>
-                        Gap:{' '}
-                        {difference.toFixed(
-                          1
-                        )}{' '}
-                        {result.unit || ''}
-                      </span>
-
-                    </div>
-                  )
-                }
+                    <p>
+                      Capacity gap:{' '}
+                      {(
+                        Number(
+                          item.required_value
+                        ) -
+                        Number(
+                          item.measured_value
+                        )
+                      ).toFixed(1)}{' '}
+                      {item.unit || ''}
+                    </p>
+                  </div>
+                )
               )}
 
             </div>
-
           )}
 
-        </div>
+          {analysis.functionalConcerns.length >
+            0 && (
+            <>
+              <div className="assessment-section-title">
+                <div>
+                  <h2>
+                    Functional Concerns
+                  </h2>
+                </div>
+              </div>
 
-        <div className="fce-report-section">
+              <div className="stack">
 
-          <div className="fce-report-section-heading">
-            <ShieldCheck size={18} />
+                {analysis.functionalConcerns.map(
+                  (item) => (
+                    <div
+                      className="fce-full-row"
+                      key={item.id}
+                    >
+                      <strong>
+                        {item.test_name}
+                      </strong>
 
+                      <p>
+                        Rating:{' '}
+                        {formatLabel(
+                          item.assessor_rating ||
+                            item.result
+                        )}
+                      </p>
+
+                      {item.repetitions !==
+                        null && (
+                        <p>
+                          Repetitions:{' '}
+                          {item.repetitions}
+                        </p>
+                      )}
+
+                      {item.duration_seconds !==
+                        null && (
+                        <p>
+                          Duration:{' '}
+                          {
+                            item.duration_seconds
+                          }{' '}
+                          seconds
+                        </p>
+                      )}
+
+                      {item
+                        .movement_quality && (
+                        <p>
+                          Movement quality:{' '}
+                          {formatLabel(
+                            item
+                              .movement_quality
+                          )}
+                        </p>
+                      )}
+
+                      {item
+                        .assistance_required && (
+                        <p>
+                          Assistance:{' '}
+                          {formatLabel(
+                            item
+                              .assistance_required
+                          )}
+                        </p>
+                      )}
+
+                      {item
+                        .symptoms_reported && (
+                        <p>
+                          Symptoms:{' '}
+                          {
+                            item
+                              .symptoms_reported
+                          }
+                        </p>
+                      )}
+
+                      {item.notes && (
+                        <p>
+                          Notes:{' '}
+                          {item.notes}
+                        </p>
+                      )}
+                    </div>
+                  )
+                )}
+
+              </div>
+            </>
+          )}
+
+          <div className="assessment-section-title">
             <div>
               <h2>
                 Clinical Decision
               </h2>
-
-              <p>
-                Assessor-recorded outcome,
-                restrictions and
-                recommendations
-              </p>
             </div>
           </div>
 
-          <div className="fce-final-outcome">
-
-            <span>
-              FINAL OUTCOME
-            </span>
-
-            <strong
-              className={`badge ${outcomeClass(
-                assessment.final_outcome
-              )}`}
-            >
-              {formatStatus(
-                assessment.final_outcome ||
-                  'pending'
-              )}
-            </strong>
-
-          </div>
-
-          <div className="fce-clinical-text">
-
-            <span>
-              RESTRICTIONS
-            </span>
-
-            <p>
-              {assessment.restrictions ||
-                'No restrictions recorded.'}
-            </p>
-
-          </div>
-
-          <div className="fce-clinical-text">
-
-            <span>
-              RECOMMENDATIONS
-            </span>
-
-            <p>
-              {assessment.recommendations ||
-                'No recommendations recorded.'}
-            </p>
-
-          </div>
-
-        </div>
-
-        <div className="fce-declaration">
-
-          <h2>
-            Assessor Declaration
-          </h2>
-
-          <p>
-            This report records functional
-            capacity findings obtained
-            during this assessment and
-            compares recorded worker
-            performance with job-demand
-            information available within
-            SpineSync.
-          </p>
-
-          <p>
-            The final fitness outcome is
-            the assessor's professional
-            determination and should be
-            interpreted together with the
-            worker's clinical presentation,
-            occupational requirements and
-            other relevant occupational
-            health information.
-          </p>
-
-          <div className="fce-signature-grid">
+          <div className="fce-info-table">
 
             <div>
-              <span>Assessor</span>
-
+              <span>Final Outcome</span>
               <strong>
-                {assessor?.full_name ||
-                  'Not recorded'}
-              </strong>
-            </div>
-
-            <div>
-              <span>Profession</span>
-
-              <strong>
-                {assessor?.profession ||
-                  'Not recorded'}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                HPCSA Registration
-              </span>
-
-              <strong>
-                {assessor?.hpcsa_number ||
-                  'Not recorded'}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Practice / Organisation
-              </span>
-
-              <strong>
-                {assessor?.practice_name ||
-                  'Not recorded'}
-              </strong>
-            </div>
-
-            <div>
-              <span>Contact</span>
-
-              <strong>
-                {assessor?.phone ||
-                  assessor?.email ||
-                  'Not recorded'}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Assessment Date
-              </span>
-
-              <strong>
-                {formatDate(
-                  assessment.assessment_date
+                {formatLabel(
+                  assessment.final_outcome
                 )}
               </strong>
             </div>
 
             <div>
-              <span>Signature</span>
+              <span>Restrictions</span>
+              <strong>
+                {displayValue(
+                  assessment.restrictions
+                )}
+              </strong>
+            </div>
 
-              {signatureSrc ? (
-                <img
-                  src={signatureSrc}
-                  alt="Assessor signature"
-                  style={{
-                    display: 'block',
-                    width: '150px',
-                    maxWidth: '100%',
-                    height: '55px',
-                    objectFit: 'contain',
-                    objectPosition:
-                      'left center',
-                    marginTop: '4px',
-                  }}
-                />
-              ) : (
-                <strong>
-                  __________________________
-                </strong>
-              )}
-
+            <div>
+              <span>
+                Recommendations
+              </span>
+              <strong>
+                {displayValue(
+                  assessment.recommendations
+                )}
+              </strong>
             </div>
 
           </div>
 
-        </div>
+          <div className="assessment-section-title">
+            <div>
+              <h2>
+                Assessor Declaration
+              </h2>
+            </div>
+          </div>
 
-        <div className="fce-page-footer">
+          <p>
+            This report records the
+            functional capacity findings
+            obtained during the assessment
+            and compares measured
+            performance with available
+            job-demand information.
+            Functional task ratings reflect
+            the assessor's observations of
+            performance, movement quality,
+            assistance requirements,
+            symptoms and other relevant
+            clinical findings. The final
+            fitness outcome remains the
+            professional determination of
+            the assessor and should be
+            interpreted together with the
+            worker's clinical presentation,
+            occupational requirements and
+            relevant occupational health
+            information.
+          </p>
 
-          <span>
-            SpineSync Enterprise
-          </span>
+          <div
+            style={{
+              marginTop: 24,
+              display: 'grid',
+              gridTemplateColumns:
+                '1fr 1fr',
+              gap: 24,
+            }}
+          >
 
-          <span>
-            {reportReference()}
-          </span>
+            <div>
+              <span className="eyebrow">
+                ASSESSOR
+              </span>
 
-          <span>Page 2</span>
+              <p>
+                <strong>
+                  {assessor?.full_name ||
+                    'Not recorded'}
+                </strong>
+              </p>
 
-        </div>
+              <p>
+                {assessor?.profession ||
+                  'Registered Healthcare Professional'}
+              </p>
 
-      </section>
+              <p>
+                HPCSA:{' '}
+                {assessor?.hpcsa_number ||
+                  'Not recorded'}
+              </p>
+
+              <p>
+                {assessor?.practice_name ||
+                  ''}
+              </p>
+            </div>
+
+            <div>
+              <span className="eyebrow">
+                SIGNATURE
+              </span>
+
+              {signatureSrc ? (
+                <div
+                  style={{
+                    marginTop: 8,
+                    minHeight: 65,
+                  }}
+                >
+                  <img
+                    src={signatureSrc}
+                    alt="Assessor signature"
+                    style={{
+                      width: 150,
+                      height: 55,
+                      objectFit: 'contain',
+                      objectPosition:
+                        'left center',
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    marginTop: 30,
+                    width: 170,
+                    borderBottom:
+                      '1px solid #222',
+                  }}
+                />
+              )}
+
+              <p>
+                Date:{' '}
+                {formatDate(
+                  assessment.assessment_date
+                )}
+              </p>
+            </div>
+
+          </div>
+
+          <footer className="fce-report-footer">
+            <span>
+              {reportReference}
+            </span>
+
+            <span>Page 2 of 2</span>
+          </footer>
+
+        </section>
+
+      </div>
 
     </div>
   )
