@@ -1,8 +1,7 @@
 import {
   Activity,
   BriefcaseBusiness,
-  ClipboardList,
-  FileBarChart,
+  ClipboardCheck,
   LayoutDashboard,
   LogOut,
   Network,
@@ -17,83 +16,85 @@ import {
 
 import { useAuth } from '../context/AuthContext'
 
-const navItems = [
-  {
-    to: '/dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    to: '/workers',
-    label: 'Workers',
-    icon: Users,
-  },
-  {
-    to: '/assessments',
-    label: 'Assessments',
-    icon: ClipboardList,
-  },
-  {
-    to: '/mining-structure',
-    label: 'Mining Structure',
-    icon: Network,
-  },
-  {
-    to: '/job-profiles',
-    label: 'Job Profiles',
-    icon: BriefcaseBusiness,
-  },
-  {
-    to: '/reports',
-    label: 'Reports',
-    icon: FileBarChart,
-  },
-  {
-    to: '/settings',
-    label: 'Settings',
-    icon: Settings,
-  },
-]
-
 export default function AppShell() {
-  const {
-    user,
-    signOut,
-  } = useAuth()
+  const { signOut } = useAuth()
+
+  const navigation = [
+    {
+      label: 'Dashboard',
+      path: '/dashboard',
+      icon: LayoutDashboard,
+    },
+    {
+      label: 'Workers',
+      path: '/workers',
+      icon: Users,
+    },
+    {
+      label: 'Assessments',
+      path: '/assessments',
+      icon: ClipboardCheck,
+    },
+    {
+      label: 'Rehabilitation',
+      path: '/rehabilitation',
+      icon: Activity,
+    },
+    {
+      label: 'Mining Structure',
+      path: '/mining-structure',
+      icon: Network,
+    },
+    {
+      label: 'Job Profiles',
+      path: '/job-profiles',
+      icon: BriefcaseBusiness,
+    },
+    {
+      label: 'Reports',
+      path: '/reports',
+      icon: ClipboardCheck,
+    },
+    {
+      label: 'Settings',
+      path: '/settings',
+      icon: Settings,
+    },
+  ]
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">
-            <Activity size={22} />
+        <div className="sidebar-brand">
+          <div className="brand-mark">
+            S
           </div>
 
           <div>
-            <div className="brand-name">
+            <strong>
               SpineSync
-            </div>
+            </strong>
 
-            <div className="brand-subtitle">
+            <span>
               Enterprise
-            </div>
+            </span>
           </div>
         </div>
 
-        <nav className="nav">
-          {navItems.map(
+        <nav className="sidebar-nav">
+          {navigation.map(
             ({
-              to,
               label,
+              path,
               icon: Icon,
             }) => (
               <NavLink
-                key={to}
-                to={to}
+                key={path}
+                to={path}
                 className={({
                   isActive,
                 }) =>
-                  `nav-link ${
+                  `sidebar-link ${
                     isActive
                       ? 'active'
                       : ''
@@ -101,7 +102,6 @@ export default function AppShell() {
                 }
               >
                 <Icon size={18} />
-
                 <span>
                   {label}
                 </span>
@@ -111,46 +111,21 @@ export default function AppShell() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="small-label">
-            Signed in
-          </div>
-
-          <strong>
-            {user?.email}
-          </strong>
-
           <button
-            className="logout-button"
+            className="sidebar-link"
             onClick={signOut}
           >
-            <LogOut size={16} />
-            Sign out
+            <LogOut size={18} />
+
+            <span>
+              Sign Out
+            </span>
           </button>
         </div>
       </aside>
 
-      <main className="main-content">
-        <header className="topbar">
-          <div>
-            <h1>
-              SpineSync Enterprise
-            </h1>
-
-            <p>
-              Mining MSK, FCE and
-              return-to-work intelligence
-              platform
-            </p>
-          </div>
-
-          <button className="profile-button">
-            SS
-          </button>
-        </header>
-
-        <section className="page">
-          <Outlet />
-        </section>
+      <main className="app-main">
+        <Outlet />
       </main>
     </div>
   )
