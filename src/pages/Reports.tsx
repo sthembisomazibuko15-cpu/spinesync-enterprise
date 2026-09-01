@@ -2,10 +2,13 @@ import {
   Activity,
   AlertTriangle,
   BriefcaseBusiness,
+  Building2,
   CheckCircle2,
   ClipboardCheck,
   Download,
+  Filter,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
   Users,
 } from 'lucide-react'
@@ -32,11 +35,28 @@ type Worker = {
   first_name: string
   last_name: string
   job_profile_id: string | null
+  operation_id: string | null
+  site_id: string | null
+  department_id: string | null
 }
 
 type JobProfile = {
   id: string
   title: string
+}
+
+type StructureItem = {
+  id: string
+  name: string
+}
+
+type Site = StructureItem & {
+  operation_id: string | null
+}
+
+type Department = StructureItem & {
+  operation_id: string | null
+  site_id: string | null
 }
 
 type FceResult = {
@@ -47,6 +67,17 @@ type FceResult = {
   measured_value: number | null
   required_value: number | null
   assessor_rating: string | null
+}
+
+type RehabilitationCase = {
+  id: string
+  worker_id: string
+  referral_date: string
+  case_status: string
+  current_work_status: string | null
+  discharge_outcome: string | null
+  sessions_completed: number
+  planned_sessions: number | null
 }
 
 type JobSummary = {
@@ -70,6 +101,9 @@ type RiskWorker = {
   name: string
   employeeNumber: string
   jobTitle: string
+  operation: string
+  site: string
+  department: string
   outcome: string
   assessmentDate: string
 }
@@ -90,11 +124,35 @@ export default function Reports() {
   const [jobProfiles, setJobProfiles] =
     useState<JobProfile[]>([])
 
+  const [operations, setOperations] =
+    useState<StructureItem[]>([])
+
+  const [sites, setSites] =
+    useState<Site[]>([])
+
+  const [departments, setDepartments] =
+    useState<Department[]>([])
+
   const [results, setResults] =
     useState<FceResult[]>([])
 
+  const [rehabCases, setRehabCases] =
+    useState<RehabilitationCase[]>([])
+
   const [dateFilter, setDateFilter] =
     useState<DateFilter>('all')
+
+  const [operationFilter, setOperationFilter] =
+    useState('all')
+
+  const [siteFilter, setSiteFilter] =
+    useState('all')
+
+  const [departmentFilter, setDepartmentFilter] =
+    useState('all')
+
+  const [jobFilter, setJobFilter] =
+    useState('all')
 
   const [loading, setLoading] =
     useState(true)
@@ -114,6 +172,10 @@ export default function Reports() {
       assessmentResponse,
       workerResponse,
       jobResponse,
+      operationResponse,
+      siteResponse,
+      departmentResponse,
+      rehabResponse,
     ] = await Promise.all([
       supabase
         .from('assessments')
@@ -124,12 +186,9 @@ export default function Reports() {
           assessment_status,
           final_outcome
         `)
-        .order(
-          'assessment_date',
-          {
-            ascending: false,
-          }
-        ),
+        .order('assessment_date', {
+          ascending: false,
+        }),
 
       supabase
         .from('workers')
@@ -138,7 +197,10 @@ export default function Reports() {
           employee_number,
           first_name,
           last_name,
-          job_profile_id
+          job_profile_id,
+          operation_id,
+          site_id,
+          department_id
         `),
 
       supabase
@@ -147,28 +209,62 @@ export default function Reports() {
           id,
           title
         `),
+
+      supabase
+        .from('operations')
+        .select(`
+          id,
+          name
+        `)
+        .order('name'),
+
+      supabase
+        .from('sites')
+        .select(`
+          id,
+          name,
+          operation_id
+        `)
+        .order('name'),
+
+      supabase
+        .from('departments')
+        .select(`
+          id,
+          name,
+          operation_id,
+          site_id
+        `)
+        .order('name'),
+
+      supabase
+        .from('rehabilitation_cases')
+        .select(`
+          id,
+          worker_id,
+          referral_date,
+          case_status,
+          current_work_status,
+          discharge_outcome,
+          sessions_completed,
+          planned_sessions
+        `)
+        .order('referral_date', {
+          ascending: false,
+        }),
     ])
 
-    if (assessmentResponse.error) {
-      setError(
-        assessmentResponse.error.message
-      )
-      setLoading(false)
-      return
-    }
+    const firstError =
+      assessmentResponse.error ||
+      workerResponse.error ||
+      jobResponse.error ||
+      operationResponse.error ||
+      siteResponse.error ||
+      departmentResponse.error ||
+      rehabResponse.error
 
-    if (workerResponse.error) {
-      setError(
-        workerResponse.error.message
-      )
-      setLoading(false)
-      return
-    }
-
-    if (jobResponse.error) {
-      setError(
-        jobResponse.error.message
-      )
+    if (firstError) {
+      setError(firstError.message)
       setLoading(false)
       return
     }
@@ -177,9 +273,7 @@ export default function Reports() {
       (assessmentResponse.data ??
         []) as Assessment[]
 
-    setAssessments(
-      loadedAssessments
-    )
+    setAssessments(loadedAssessments)
 
     setWorkers(
       (workerResponse.data ??
@@ -191,9 +285,27 @@ export default function Reports() {
         []) as JobProfile[]
     )
 
-    if (
-      loadedAssessments.length === 0
-    ) {
+    setOperations(
+      (operationResponse.data ??
+        []) as StructureItem[]
+    )
+
+    setSites(
+      (siteResponse.data ??
+        []) as Site[]
+    )
+
+    setDepartments(
+      (departmentResponse.data ??
+        []) as Department[]
+    )
+
+    setRehabCases(
+      (rehabResponse.data ??
+        []) as RehabilitationCase[]
+    )
+
+    if (loadedAssessments.length === 0) {
       setResults([])
       setLoading(false)
       return
@@ -224,9 +336,7 @@ export default function Reports() {
       )
 
     if (resultError) {
-      setError(
-        resultError.message
-      )
+      setError(resultError.message)
       setLoading(false)
       return
     }
@@ -246,16 +356,12 @@ export default function Reports() {
       return true
     }
 
-    const days =
-      Number(dateFilter)
+    const days = Number(dateFilter)
 
-    const assessmentDate =
-      new Date(
-        `${value}T00:00:00`
-      )
+    const itemDate =
+      new Date(`${value}T00:00:00`)
 
-    const threshold =
-      new Date()
+    const threshold = new Date()
 
     threshold.setHours(
       0,
@@ -265,15 +371,253 @@ export default function Reports() {
     )
 
     threshold.setDate(
-      threshold.getDate() -
-        days
+      threshold.getDate() - days
     )
 
-    return (
-      assessmentDate >=
-      threshold
-    )
+    return itemDate >= threshold
   }
+
+  const workerMap = useMemo(() => {
+    const map =
+      new Map<string, Worker>()
+
+    workers.forEach((worker) => {
+      map.set(worker.id, worker)
+    })
+
+    return map
+  }, [workers])
+
+  const jobMap = useMemo(() => {
+    const map =
+      new Map<string, JobProfile>()
+
+    jobProfiles.forEach((item) => {
+      map.set(item.id, item)
+    })
+
+    return map
+  }, [jobProfiles])
+
+  const operationMap =
+    useMemo(() => {
+      const map =
+        new Map<
+          string,
+          StructureItem
+        >()
+
+      operations.forEach((item) => {
+        map.set(item.id, item)
+      })
+
+      return map
+    }, [operations])
+
+  const siteMap = useMemo(() => {
+    const map =
+      new Map<string, Site>()
+
+    sites.forEach((item) => {
+      map.set(item.id, item)
+    })
+
+    return map
+  }, [sites])
+
+  const departmentMap =
+    useMemo(() => {
+      const map =
+        new Map<
+          string,
+          Department
+        >()
+
+      departments.forEach(
+        (item) => {
+          map.set(item.id, item)
+        }
+      )
+
+      return map
+    }, [departments])
+
+  function workerInsideFilters(
+    worker:
+      | Worker
+      | undefined
+  ) {
+    if (!worker) {
+      return false
+    }
+
+    if (
+      operationFilter !== 'all' &&
+      worker.operation_id !==
+        operationFilter
+    ) {
+      return false
+    }
+
+    if (
+      siteFilter !== 'all' &&
+      worker.site_id !== siteFilter
+    ) {
+      return false
+    }
+
+    if (
+      departmentFilter !== 'all' &&
+      worker.department_id !==
+        departmentFilter
+    ) {
+      return false
+    }
+
+    if (
+      jobFilter !== 'all' &&
+      worker.job_profile_id !==
+        jobFilter
+    ) {
+      return false
+    }
+
+    return true
+  }
+
+  const availableSites =
+    useMemo(() => {
+      if (
+        operationFilter === 'all'
+      ) {
+        return sites
+      }
+
+      return sites.filter(
+        (site) =>
+          site.operation_id ===
+          operationFilter
+      )
+    }, [
+      sites,
+      operationFilter,
+    ])
+
+  const availableDepartments =
+    useMemo(() => {
+      return departments.filter(
+        (department) => {
+          if (
+            operationFilter !==
+              'all' &&
+            department.operation_id &&
+            department.operation_id !==
+              operationFilter
+          ) {
+            return false
+          }
+
+          if (
+            siteFilter !== 'all' &&
+            department.site_id &&
+            department.site_id !==
+              siteFilter
+          ) {
+            return false
+          }
+
+          return true
+        }
+      )
+    }, [
+      departments,
+      operationFilter,
+      siteFilter,
+    ])
+
+  const availableJobs =
+    useMemo(() => {
+      const relevantWorkerJobIds =
+        new Set(
+          workers
+            .filter((worker) => {
+              if (
+                operationFilter !==
+                  'all' &&
+                worker.operation_id !==
+                  operationFilter
+              ) {
+                return false
+              }
+
+              if (
+                siteFilter !== 'all' &&
+                worker.site_id !==
+                  siteFilter
+              ) {
+                return false
+              }
+
+              if (
+                departmentFilter !==
+                  'all' &&
+                worker.department_id !==
+                  departmentFilter
+              ) {
+                return false
+              }
+
+              return true
+            })
+            .map(
+              (worker) =>
+                worker.job_profile_id
+            )
+            .filter(
+              (id): id is string =>
+                Boolean(id)
+            )
+        )
+
+      return jobProfiles.filter(
+        (job) =>
+          relevantWorkerJobIds.has(
+            job.id
+          )
+      )
+    }, [
+      workers,
+      jobProfiles,
+      operationFilter,
+      siteFilter,
+      departmentFilter,
+    ])
+
+  const filteredWorkers =
+    useMemo(
+      () =>
+        workers.filter(
+          workerInsideFilters
+        ),
+      [
+        workers,
+        operationFilter,
+        siteFilter,
+        departmentFilter,
+        jobFilter,
+      ]
+    )
+
+  const filteredWorkerIds =
+    useMemo(
+      () =>
+        new Set(
+          filteredWorkers.map(
+            (worker) => worker.id
+          )
+        ),
+      [filteredWorkers]
+    )
 
   const filteredAssessments =
     useMemo(
@@ -282,11 +626,15 @@ export default function Reports() {
           (item) =>
             dateInsideFilter(
               item.assessment_date
+            ) &&
+            filteredWorkerIds.has(
+              item.worker_id
             )
         ),
       [
         assessments,
         dateFilter,
+        filteredWorkerIds,
       ]
     )
 
@@ -313,6 +661,25 @@ export default function Reports() {
       [
         results,
         filteredAssessmentIds,
+      ]
+    )
+
+  const filteredRehabCases =
+    useMemo(
+      () =>
+        rehabCases.filter(
+          (item) =>
+            filteredWorkerIds.has(
+              item.worker_id
+            ) &&
+            dateInsideFilter(
+              item.referral_date
+            )
+        ),
+      [
+        rehabCases,
+        filteredWorkerIds,
+        dateFilter,
       ]
     )
 
@@ -366,14 +733,12 @@ export default function Reports() {
     const workersAssessed =
       new Set(
         filteredAssessments.map(
-          (item) =>
-            item.worker_id
+          (item) => item.worker_id
         )
       ).size
 
     const completionRate =
-      filteredAssessments.length >
-      0
+      filteredAssessments.length > 0
         ? Math.round(
             (
               completedAssessments.length /
@@ -396,6 +761,74 @@ export default function Reports() {
     completedAssessments,
   ])
 
+  const rehabMetrics =
+    useMemo(() => {
+      const active =
+        filteredRehabCases.filter(
+          (item) =>
+            item.case_status ===
+              'active' ||
+            item.case_status ===
+              'on_hold'
+        ).length
+
+      const ready =
+        filteredRehabCases.filter(
+          (item) =>
+            item.case_status ===
+            'ready_for_reassessment'
+        ).length
+
+      const completed =
+        filteredRehabCases.filter(
+          (item) =>
+            item.case_status ===
+            'completed'
+        ).length
+
+      const fullDuty =
+        filteredRehabCases.filter(
+          (item) =>
+            item.discharge_outcome ===
+            'return_to_full_duty'
+        ).length
+
+      const modifiedDuty =
+        filteredRehabCases.filter(
+          (item) =>
+            item.discharge_outcome ===
+            'return_to_modified_duty'
+        ).length
+
+      const temporarilyUnfit =
+        filteredRehabCases.filter(
+          (item) =>
+            item.discharge_outcome ===
+            'temporarily_unfit'
+        ).length
+
+      const totalSessions =
+        filteredRehabCases.reduce(
+          (total, item) =>
+            total +
+            Number(
+              item.sessions_completed ||
+                0
+            ),
+          0
+        )
+
+      return {
+        active,
+        ready,
+        completed,
+        fullDuty,
+        modifiedDuty,
+        temporarilyUnfit,
+        totalSessions,
+      }
+    }, [filteredRehabCases])
+
   const outcomeDistribution =
     useMemo(() => {
       return [
@@ -416,14 +849,12 @@ export default function Reports() {
             metrics.temporarilyUnfit,
         },
         {
-          label:
-            'Rehabilitation',
+          label: 'Rehabilitation',
           value:
             metrics.rehabilitation,
         },
         {
-          label:
-            'Reassessment',
+          label: 'Reassessment',
           value:
             metrics.reassessment,
         },
@@ -448,12 +879,15 @@ export default function Reports() {
 
       filteredResults.forEach(
         (item) => {
+          const rating =
+            item.assessor_rating ||
+            item.result
+
           const current =
             map.get(
               item.test_name
             ) || {
-              name:
-                item.test_name,
+              name: item.test_name,
               assessments: 0,
               failures: 0,
               borderline: 0,
@@ -461,18 +895,14 @@ export default function Reports() {
 
           current.assessments += 1
 
-          if (
-            item.result === 'fail'
-          ) {
+          if (rating === 'fail') {
             current.failures += 1
           }
 
           if (
-            item.result ===
-            'borderline'
+            rating === 'borderline'
           ) {
-            current.borderline +=
-              1
+            current.borderline += 1
           }
 
           map.set(
@@ -519,10 +949,8 @@ export default function Reports() {
       filteredAssessments.forEach(
         (assessment) => {
           const worker =
-            workers.find(
-              (item) =>
-                item.id ===
-                assessment.worker_id
+            workerMap.get(
+              assessment.worker_id
             )
 
           if (
@@ -552,15 +980,19 @@ export default function Reports() {
           current.failures +=
             assessmentResults.filter(
               (item) =>
-                item.result ===
-                'fail'
+                (
+                  item.assessor_rating ||
+                  item.result
+                ) === 'fail'
             ).length
 
           current.borderline +=
             assessmentResults.filter(
               (item) =>
-                item.result ===
-                'borderline'
+                (
+                  item.assessor_rating ||
+                  item.result
+                ) === 'borderline'
             ).length
 
           current.capacityGaps +=
@@ -570,6 +1002,9 @@ export default function Reports() {
                   null &&
                 item.required_value !==
                   null &&
+                Number(
+                  item.required_value
+                ) > 0 &&
                 Number(
                   item.measured_value
                 ) <
@@ -596,7 +1031,7 @@ export default function Reports() {
         )
     }, [
       jobProfiles,
-      workers,
+      workerMap,
       filteredAssessments,
       filteredResults,
     ])
@@ -623,10 +1058,8 @@ export default function Reports() {
           }
 
           const worker =
-            workers.find(
-              (item) =>
-                item.id ===
-                assessment.worker_id
+            workerMap.get(
+              assessment.worker_id
             )
 
           if (!worker) {
@@ -634,11 +1067,32 @@ export default function Reports() {
           }
 
           const job =
-            jobProfiles.find(
-              (item) =>
-                item.id ===
-                worker.job_profile_id
-            )
+            worker.job_profile_id
+              ? jobMap.get(
+                  worker.job_profile_id
+                )
+              : undefined
+
+          const operation =
+            worker.operation_id
+              ? operationMap.get(
+                  worker.operation_id
+                )
+              : undefined
+
+          const site =
+            worker.site_id
+              ? siteMap.get(
+                  worker.site_id
+                )
+              : undefined
+
+          const department =
+            worker.department_id
+              ? departmentMap.get(
+                  worker.department_id
+                )
+              : undefined
 
           rows.push({
             workerId: worker.id,
@@ -652,6 +1106,15 @@ export default function Reports() {
             jobTitle:
               job?.title ||
               'Not assigned',
+
+            operation:
+              operation?.name || '—',
+
+            site:
+              site?.name || '—',
+
+            department:
+              department?.name || '—',
 
             outcome:
               assessment.final_outcome ||
@@ -673,8 +1136,11 @@ export default function Reports() {
         .slice(0, 10)
     }, [
       completedAssessments,
-      workers,
-      jobProfiles,
+      workerMap,
+      jobMap,
+      operationMap,
+      siteMap,
+      departmentMap,
     ])
 
   function formatLabel(
@@ -712,10 +1178,45 @@ export default function Reports() {
     )
   }
 
+  function clearFilters() {
+    setDateFilter('all')
+    setOperationFilter('all')
+    setSiteFilter('all')
+    setDepartmentFilter('all')
+    setJobFilter('all')
+  }
+
+  function handleOperationChange(
+    value: string
+  ) {
+    setOperationFilter(value)
+    setSiteFilter('all')
+    setDepartmentFilter('all')
+    setJobFilter('all')
+  }
+
+  function handleSiteChange(
+    value: string
+  ) {
+    setSiteFilter(value)
+    setDepartmentFilter('all')
+    setJobFilter('all')
+  }
+
+  function handleDepartmentChange(
+    value: string
+  ) {
+    setDepartmentFilter(value)
+    setJobFilter('all')
+  }
+
   function exportCsv() {
     const headers = [
       'Worker',
       'Employee Number',
+      'Operation',
+      'Site / Shaft',
+      'Department',
       'Job Profile',
       'Assessment Date',
       'Status',
@@ -726,29 +1227,59 @@ export default function Reports() {
       filteredAssessments.map(
         (assessment) => {
           const worker =
-            workers.find(
-              (item) =>
-                item.id ===
-                assessment.worker_id
+            workerMap.get(
+              assessment.worker_id
             )
 
           const job =
-            jobProfiles.find(
-              (item) =>
-                item.id ===
-                worker?.job_profile_id
-            )
+            worker?.job_profile_id
+              ? jobMap.get(
+                  worker.job_profile_id
+                )
+              : undefined
+
+          const operation =
+            worker?.operation_id
+              ? operationMap.get(
+                  worker.operation_id
+                )
+              : undefined
+
+          const site =
+            worker?.site_id
+              ? siteMap.get(
+                  worker.site_id
+                )
+              : undefined
+
+          const department =
+            worker?.department_id
+              ? departmentMap.get(
+                  worker.department_id
+                )
+              : undefined
 
           return [
             worker
               ? `${worker.first_name} ${worker.last_name}`
               : '',
+
             worker
               ?.employee_number ||
               '',
+
+            operation?.name || '',
+
+            site?.name || '',
+
+            department?.name || '',
+
             job?.title || '',
+
             assessment.assessment_date,
+
             assessment.assessment_status,
+
             assessment.final_outcome ||
               '',
           ]
@@ -790,8 +1321,9 @@ export default function Reports() {
       document.createElement('a')
 
     link.href = url
+
     link.download =
-      'spinesync-fce-report.csv'
+      'spinesync-enterprise-report.csv'
 
     document.body.appendChild(
       link
@@ -809,7 +1341,8 @@ export default function Reports() {
         <div className="loading-spinner" />
 
         <p>
-          Loading analytics...
+          Loading enterprise
+          analytics...
         </p>
       </div>
     )
@@ -830,10 +1363,9 @@ export default function Reports() {
           </h1>
 
           <p>
-            Mine-level overview of
-            functional capacity,
-            occupational outcomes and
-            job-demand risks.
+            Mine-level functional
+            capacity, rehabilitation and
+            return-to-work intelligence.
           </p>
         </div>
 
@@ -846,9 +1378,7 @@ export default function Reports() {
         >
           <button
             className="secondary-button"
-            onClick={
-              loadReports
-            }
+            onClick={loadReports}
           >
             <RefreshCw size={16} />
             Refresh
@@ -873,41 +1403,205 @@ export default function Reports() {
 
       <div className="panel">
 
-        <label
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <Filter size={20} />
+          </div>
+
+          <div>
+            <h2>
+              Enterprise Filters
+            </h2>
+
+            <p>
+              Analyse the workforce by
+              mine structure and
+              occupational role.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="form-grid">
+
+          <label>
+            <span>
+              Reporting Period
+            </span>
+
+            <select
+              value={dateFilter}
+              onChange={(event) =>
+                setDateFilter(
+                  event.target
+                    .value as DateFilter
+                )
+              }
+            >
+              <option value="all">
+                All Time
+              </option>
+
+              <option value="30">
+                Last 30 Days
+              </option>
+
+              <option value="90">
+                Last 90 Days
+              </option>
+
+              <option value="365">
+                Last 12 Months
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>
+              Operation
+            </span>
+
+            <select
+              value={
+                operationFilter
+              }
+              onChange={(event) =>
+                handleOperationChange(
+                  event.target.value
+                )
+              }
+            >
+              <option value="all">
+                All Operations
+              </option>
+
+              {operations.map(
+                (operation) => (
+                  <option
+                    key={operation.id}
+                    value={
+                      operation.id
+                    }
+                  >
+                    {operation.name}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+
+          <label>
+            <span>
+              Site / Shaft
+            </span>
+
+            <select
+              value={siteFilter}
+              onChange={(event) =>
+                handleSiteChange(
+                  event.target.value
+                )
+              }
+            >
+              <option value="all">
+                All Sites / Shafts
+              </option>
+
+              {availableSites.map(
+                (site) => (
+                  <option
+                    key={site.id}
+                    value={site.id}
+                  >
+                    {site.name}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+
+          <label>
+            <span>
+              Department
+            </span>
+
+            <select
+              value={
+                departmentFilter
+              }
+              onChange={(event) =>
+                handleDepartmentChange(
+                  event.target.value
+                )
+              }
+            >
+              <option value="all">
+                All Departments
+              </option>
+
+              {availableDepartments.map(
+                (department) => (
+                  <option
+                    key={
+                      department.id
+                    }
+                    value={
+                      department.id
+                    }
+                  >
+                    {department.name}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+
+          <label>
+            <span>
+              Job Profile
+            </span>
+
+            <select
+              value={jobFilter}
+              onChange={(event) =>
+                setJobFilter(
+                  event.target.value
+                )
+              }
+            >
+              <option value="all">
+                All Job Profiles
+              </option>
+
+              {availableJobs.map(
+                (job) => (
+                  <option
+                    key={job.id}
+                    value={job.id}
+                  >
+                    {job.title}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+
+        </div>
+
+        <div
           style={{
-            maxWidth: 260,
+            marginTop: 18,
           }}
         >
-          <span>
-            Reporting Period
-          </span>
-
-          <select
-            value={dateFilter}
-            onChange={(event) =>
-              setDateFilter(
-                event.target
-                  .value as DateFilter
-              )
-            }
+          <button
+            className="secondary-button"
+            onClick={clearFilters}
           >
-            <option value="all">
-              All Time
-            </option>
-
-            <option value="30">
-              Last 30 Days
-            </option>
-
-            <option value="90">
-              Last 90 Days
-            </option>
-
-            <option value="365">
-              Last 12 Months
-            </option>
-          </select>
-        </label>
+            <RotateCcw size={16} />
+            Clear Filters
+          </button>
+        </div>
 
       </div>
 
@@ -1002,13 +1696,101 @@ export default function Reports() {
 
       <div className="panel">
 
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <Building2 size={20} />
+          </div>
+
+          <div>
+            <h2>
+              Selected Workforce
+            </h2>
+
+            <p>
+              Workforce population
+              represented by the current
+              mine-level filters.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="fce-summary-row">
+
+          <div>
+            <Users size={18} />
+
+            <span>
+              WORKERS IN SCOPE
+            </span>
+
+            <strong>
+              {
+                filteredWorkers.length
+              }
+            </strong>
+          </div>
+
+          <div>
+            <ClipboardCheck
+              size={18}
+            />
+
+            <span>
+              TOTAL FCES
+            </span>
+
+            <strong>
+              {
+                filteredAssessments.length
+              }
+            </strong>
+          </div>
+
+          <div>
+            <Activity size={18} />
+
+            <span>
+              REHAB CASES
+            </span>
+
+            <strong>
+              {
+                filteredRehabCases.length
+              }
+            </strong>
+          </div>
+
+          <div>
+            <ShieldAlert
+              size={18}
+            />
+
+            <span>
+              ACTIVE REHAB
+            </span>
+
+            <strong>
+              {rehabMetrics.active}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div className="panel">
+
         <h2>
           Occupational Outcomes
         </h2>
 
         <p>
           Distribution of final
-          assessor-determined outcomes.
+          assessor-determined FCE
+          outcomes for the selected
+          workforce.
         </p>
 
         <div
@@ -1021,9 +1803,8 @@ export default function Reports() {
 
           {outcomeDistribution.map(
             (item) => (
-              <div
-                key={item.label}
-              >
+              <div key={item.label}>
+
                 <div
                   style={{
                     display: 'flex',
@@ -1048,30 +1829,142 @@ export default function Reports() {
                     borderRadius: 999,
                     background:
                       'rgba(127,127,127,0.15)',
-                    overflow:
-                      'hidden',
+                    overflow: 'hidden',
                   }}
                 >
                   <div
                     style={{
-                      height:
-                        '100%',
+                      height: '100%',
+
                       width: `${
                         (
                           item.value /
                           maxOutcome
                         ) * 100
                       }%`,
+
                       background:
                         'currentColor',
-                      borderRadius:
-                        999,
+
+                      borderRadius: 999,
                     }}
                   />
                 </div>
+
               </div>
             )
           )}
+
+        </div>
+
+      </div>
+
+      <div className="panel">
+
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <Activity size={20} />
+          </div>
+
+          <div>
+            <h2>
+              Rehabilitation &
+              Return-to-Work Outcomes
+            </h2>
+
+            <p>
+              Rehabilitation activity and
+              RTW outcomes for the
+              selected workforce.
+            </p>
+          </div>
+
+        </div>
+
+        <div className="fce-summary-row">
+
+          <div>
+            <Activity size={18} />
+
+            <span>
+              ACTIVE CASES
+            </span>
+
+            <strong>
+              {rehabMetrics.active}
+            </strong>
+          </div>
+
+          <div>
+            <ClipboardCheck
+              size={18}
+            />
+
+            <span>
+              READY FOR REASSESSMENT
+            </span>
+
+            <strong>
+              {rehabMetrics.ready}
+            </strong>
+          </div>
+
+          <div>
+            <CheckCircle2
+              size={18}
+            />
+
+            <span>
+              COMPLETED CASES
+            </span>
+
+            <strong>
+              {rehabMetrics.completed}
+            </strong>
+          </div>
+
+          <div>
+            <Users size={18} />
+
+            <span>
+              FULL DUTY RTW
+            </span>
+
+            <strong>
+              {rehabMetrics.fullDuty}
+            </strong>
+          </div>
+
+          <div>
+            <BriefcaseBusiness
+              size={18}
+            />
+
+            <span>
+              MODIFIED DUTY RTW
+            </span>
+
+            <strong>
+              {
+                rehabMetrics.modifiedDuty
+              }
+            </strong>
+          </div>
+
+          <div>
+            <Activity size={18} />
+
+            <span>
+              REHAB SESSIONS
+            </span>
+
+            <strong>
+              {
+                rehabMetrics.totalSessions
+              }
+            </strong>
+          </div>
 
         </div>
 
@@ -1094,7 +1987,8 @@ export default function Reports() {
             <p>
               FCE tests producing the
               highest number of failed or
-              borderline findings.
+              borderline findings in the
+              selected workforce.
             </p>
           </div>
 
@@ -1104,7 +1998,7 @@ export default function Reports() {
         0 ? (
           <p>
             No FCE test data available
-            for this reporting period.
+            for the selected filters.
           </p>
         ) : (
           <div className="fce-report-table-wrap">
@@ -1116,8 +2010,13 @@ export default function Reports() {
                   <th>
                     Functional Demand
                   </th>
+
                   <th>Tests</th>
-                  <th>Borderline</th>
+
+                  <th>
+                    Borderline
+                  </th>
+
                   <th>Failed</th>
                 </tr>
               </thead>
@@ -1127,9 +2026,7 @@ export default function Reports() {
                 {demandSummary.map(
                   (item) => (
                     <tr
-                      key={
-                        item.name
-                      }
+                      key={item.name}
                     >
                       <td>
                         <strong>
@@ -1184,9 +2081,10 @@ export default function Reports() {
             </h2>
 
             <p>
-              Compare assessment
-              findings across occupational
-              job profiles.
+              Compare functional findings
+              across occupational job
+              profiles within the
+              selected mine structure.
             </p>
           </div>
 
@@ -1196,7 +2094,8 @@ export default function Reports() {
         0 ? (
           <p>
             No assessed job profiles
-            available.
+            available for the selected
+            filters.
           </p>
         ) : (
           <div className="fce-report-table-wrap">
@@ -1205,10 +2104,20 @@ export default function Reports() {
 
               <thead>
                 <tr>
-                  <th>Job Profile</th>
+                  <th>
+                    Job Profile
+                  </th>
+
                   <th>FCEs</th>
-                  <th>Borderline</th>
-                  <th>Failed Tests</th>
+
+                  <th>
+                    Borderline
+                  </th>
+
+                  <th>
+                    Failed Tests
+                  </th>
+
                   <th>
                     Capacity Gaps
                   </th>
@@ -1281,8 +2190,9 @@ export default function Reports() {
             </h2>
 
             <p>
-              Recent completed FCEs
-              resulting in restrictions,
+              Workers with recent
+              assessor-determined
+              restrictions,
               rehabilitation,
               reassessment or temporary
               unfitness.
@@ -1301,7 +2211,7 @@ export default function Reports() {
             <span>
               No workers requiring
               follow-up were identified
-              in this period.
+              for the selected filters.
             </span>
           </div>
         ) : (
@@ -1312,11 +2222,29 @@ export default function Reports() {
               <thead>
                 <tr>
                   <th>Worker</th>
+
                   <th>
                     Employee No.
                   </th>
-                  <th>Job Profile</th>
+
+                  <th>
+                    Operation
+                  </th>
+
+                  <th>
+                    Site / Shaft
+                  </th>
+
+                  <th>
+                    Department
+                  </th>
+
+                  <th>
+                    Job Profile
+                  </th>
+
                   <th>Date</th>
+
                   <th>Outcome</th>
                 </tr>
               </thead>
@@ -1337,6 +2265,22 @@ export default function Reports() {
                       <td>
                         {
                           item.employeeNumber
+                        }
+                      </td>
+
+                      <td>
+                        {
+                          item.operation
+                        }
+                      </td>
+
+                      <td>
+                        {item.site}
+                      </td>
+
+                      <td>
+                        {
+                          item.department
                         }
                       </td>
 
@@ -1387,16 +2331,20 @@ export default function Reports() {
 
         <p>
           These analytics aggregate
-          recorded FCE findings and
-          assessor-determined outcomes.
-          They are intended to support
-          rehabilitation planning,
-          workforce risk surveillance and
-          occupational decision-making.
-          They do not replace individual
-          clinical assessment or
-          occupational medical
-          certification.
+          recorded FCE, rehabilitation
+          and assessor-determined
+          return-to-work information
+          across the selected operation,
+          site or shaft, department and
+          job profile. They are intended
+          to support workforce planning,
+          rehabilitation monitoring,
+          functional-capacity
+          surveillance and occupational
+          risk management. They do not
+          independently determine an
+          individual worker's medical or
+          occupational fitness.
         </p>
 
       </div>
