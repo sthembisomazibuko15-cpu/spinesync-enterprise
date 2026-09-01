@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Minus,
+  ShieldCheck,
   TrendingUp,
 } from 'lucide-react'
 
@@ -153,10 +154,7 @@ export default function RehabComparison() {
       .eq('id', id)
       .single()
 
-    if (
-      caseError ||
-      !caseData
-    ) {
+    if (caseError || !caseData) {
       setError(
         caseError?.message ||
           'Rehabilitation case not found.'
@@ -187,10 +185,7 @@ export default function RehabComparison() {
       )
       .single()
 
-    if (
-      workerError ||
-      !workerData
-    ) {
+    if (workerError || !workerData) {
       setError(
         workerError?.message ||
           'Worker not found.'
@@ -296,7 +291,8 @@ export default function RehabComparison() {
         final_outcome,
         restrictions,
         recommendations,
-        pain_score
+        pain_score,
+        created_at
       `)
       .eq(
         'rehabilitation_case_id',
@@ -312,7 +308,12 @@ export default function RehabComparison() {
           ascending: false,
         }
       )
-      .limit(1)
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        }
+      )
 
     if (reassessmentError) {
       setError(
@@ -326,12 +327,18 @@ export default function RehabComparison() {
       reassessmentData &&
       reassessmentData.length > 0
     ) {
-      const latestReassessment =
-        reassessmentData[0] as Assessment
+      const completed =
+        reassessmentData.find(
+          (item) =>
+            item.assessment_status ===
+            'completed'
+        )
 
-      setReassessment(
-        latestReassessment
-      )
+      const latest =
+        (completed ||
+          reassessmentData[0]) as Assessment
+
+      setReassessment(latest)
 
       const {
         data: resultData,
@@ -355,7 +362,7 @@ export default function RehabComparison() {
         `)
         .eq(
           'assessment_id',
-          latestReassessment.id
+          latest.id
         )
 
       if (resultError) {
@@ -481,33 +488,6 @@ export default function RehabComparison() {
       return 'not_comparable'
     }
 
-    const initialMeasured =
-      row.initial.measured_value
-
-    const reassessmentMeasured =
-      row.reassessment.measured_value
-
-    if (
-      initialMeasured !== null &&
-      reassessmentMeasured !== null
-    ) {
-      if (
-        reassessmentMeasured >
-        initialMeasured
-      ) {
-        return 'improved'
-      }
-
-      if (
-        reassessmentMeasured <
-        initialMeasured
-      ) {
-        return 'declined'
-      }
-
-      return 'unchanged'
-    }
-
     const initialRating =
       ratingScore(
         row.initial.assessor_rating ||
@@ -521,27 +501,27 @@ export default function RehabComparison() {
       )
 
     if (
-      initialRating === null ||
-      reassessmentRating === null
+      initialRating !== null &&
+      reassessmentRating !== null
     ) {
-      return 'not_comparable'
+      if (
+        reassessmentRating >
+        initialRating
+      ) {
+        return 'improved'
+      }
+
+      if (
+        reassessmentRating <
+        initialRating
+      ) {
+        return 'declined'
+      }
+
+      return 'unchanged'
     }
 
-    if (
-      reassessmentRating >
-      initialRating
-    ) {
-      return 'improved'
-    }
-
-    if (
-      reassessmentRating <
-      initialRating
-    ) {
-      return 'declined'
-    }
-
-    return 'unchanged'
+    return 'not_comparable'
   }
 
   const changeSummary =
@@ -781,6 +761,21 @@ export default function RehabComparison() {
           </p>
 
         </div>
+
+        {reassessment?.assessment_status ===
+          'completed' && (
+          <button
+            className="primary-button"
+            onClick={() =>
+              navigate(
+                `/rehabilitation/${rehabCase.id}/discharge`
+              )
+            }
+          >
+            <ShieldCheck size={16} />
+            Final RTW Decision
+          </button>
+        )}
 
       </div>
 
@@ -1058,6 +1053,21 @@ export default function RehabComparison() {
               reassessment.
             </p>
 
+            {reassessment.assessment_status !==
+              'completed' && (
+              <div
+                className="error-message"
+                style={{
+                  marginTop: 16,
+                }}
+              >
+                The reassessment is still
+                in progress. Comparison
+                results are provisional
+                until the FCE is completed.
+              </div>
+            )}
+
             {comparisonRows.length ===
             0 ? (
               <p
@@ -1232,22 +1242,22 @@ export default function RehabComparison() {
             </h2>
 
             <p>
-              The comparison summarises
-              changes between recorded
-              functional capacity findings
-              before and after
-              rehabilitation. Improvement
-              in individual test values
-              does not independently
-              establish fitness for work.
-              Final work status should be
-              determined by the responsible
-              clinician or assessor using
-              the worker's clinical
-              presentation, functional
-              findings, rehabilitation
-              progress and documented job
-              demands.
+              This comparison provides
+              decision-support information
+              based on the recorded FCE
+              classifications before and
+              after rehabilitation.
+              Individual measured values
+              are shown for context, while
+              the comparison status is
+              based on recorded pass,
+              borderline and fail
+              classifications. The final
+              return-to-work decision
+              remains the professional
+              determination of the
+              responsible clinician or
+              assessor.
             </p>
 
             <div
@@ -1273,12 +1283,35 @@ export default function RehabComparison() {
                 className="secondary-button"
                 onClick={() =>
                   navigate(
-                    `/assessments/${reassessment.id}/record`
+                    reassessment.assessment_status ===
+                      'completed'
+                      ? `/assessments/${reassessment.id}/record`
+                      : `/assessments/${reassessment.id}`
                   )
                 }
               >
-                View Reassessment
+                {reassessment.assessment_status ===
+                'completed'
+                  ? 'View Reassessment'
+                  : 'Continue Reassessment'}
               </button>
+
+              {reassessment.assessment_status ===
+                'completed' && (
+                <button
+                  className="primary-button"
+                  onClick={() =>
+                    navigate(
+                      `/rehabilitation/${rehabCase.id}/discharge`
+                    )
+                  }
+                >
+                  <ShieldCheck
+                    size={16}
+                  />
+                  Final RTW Decision
+                </button>
+              )}
             </div>
 
           </div>
