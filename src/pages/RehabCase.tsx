@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Plus,
+  RefreshCw,
   Save,
   Target,
   Trash2,
@@ -124,11 +125,6 @@ export default function RehabCase() {
   ] = useState('')
 
   const [
-    currentValue,
-    setCurrentValue,
-  ] = useState('')
-
-  const [
     targetValue,
     setTargetValue,
   ] = useState('')
@@ -209,10 +205,7 @@ export default function RehabCase() {
       caseData as RehabCase
 
     setRehabCase(loadedCase)
-
-    setCaseStatus(
-      loadedCase.case_status
-    )
+    setCaseStatus(loadedCase.case_status)
 
     setWorkStatus(
       loadedCase.current_work_status ||
@@ -298,19 +291,16 @@ export default function RehabCase() {
 
     setWorker(loadedWorker)
 
-    if (
-      loadedWorker.job_profile_id
-    ) {
-      const {
-        data: jobData,
-      } = await supabase
-        .from('job_profiles')
-        .select('id,title')
-        .eq(
-          'id',
-          loadedWorker.job_profile_id
-        )
-        .single()
+    if (loadedWorker.job_profile_id) {
+      const { data: jobData } =
+        await supabase
+          .from('job_profiles')
+          .select('id,title')
+          .eq(
+            'id',
+            loadedWorker.job_profile_id
+          )
+          .single()
 
       if (jobData) {
         setJobProfile(
@@ -367,6 +357,17 @@ export default function RehabCase() {
         )
       )
     }, [rehabCase])
+
+  const achievedGoals =
+    useMemo(
+      () =>
+        goals.filter(
+          (goal) =>
+            goal.goal_status ===
+            'achieved'
+        ).length,
+      [goals]
+    )
 
   function formatLabel(
     value:
@@ -463,7 +464,6 @@ export default function RehabCase() {
       .from('rehabilitation_goals')
       .insert({
         rehabilitation_case_id: id,
-
         goal_description:
           goalDescription.trim(),
 
@@ -473,11 +473,9 @@ export default function RehabCase() {
             : null,
 
         current_value:
-          currentValue
-            ? Number(currentValue)
-            : baselineValue
-              ? Number(baselineValue)
-              : null,
+          baselineValue
+            ? Number(baselineValue)
+            : null,
 
         target_value:
           targetValue
@@ -485,8 +483,7 @@ export default function RehabCase() {
             : null,
 
         target_unit:
-          targetUnit.trim() ||
-          null,
+          targetUnit || null,
 
         target_date:
           targetDate || null,
@@ -505,12 +502,10 @@ export default function RehabCase() {
 
     setGoalDescription('')
     setBaselineValue('')
-    setCurrentValue('')
     setTargetValue('')
     setTargetUnit('kg')
     setTargetDate('')
     setShowGoalForm(false)
-
     setSavingGoal(false)
 
     await loadCase()
@@ -531,16 +526,12 @@ export default function RehabCase() {
             ? null
             : Number(current),
 
-        goal_status:
-          status,
+        goal_status: status,
 
         updated_at:
           new Date().toISOString(),
       })
-      .eq(
-        'id',
-        goal.id
-      )
+      .eq('id', goal.id)
 
     if (updateError) {
       setError(
@@ -579,6 +570,16 @@ export default function RehabCase() {
     }
 
     await loadCase()
+  }
+
+  function startReassessment() {
+    if (!rehabCase) {
+      return
+    }
+
+    navigate(
+      `/rehabilitation/${rehabCase.id}/reassessment`
+    )
   }
 
   if (loading) {
@@ -643,17 +644,35 @@ export default function RehabCase() {
           </p>
         </div>
 
-        <button
-          className="primary-button"
-          onClick={saveCase}
-          disabled={saving}
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
         >
-          <Save size={16} />
+          <button
+            className="secondary-button"
+            onClick={
+              startReassessment
+            }
+          >
+            <RefreshCw size={16} />
+            Start Reassessment
+          </button>
 
-          {saving
-            ? 'Saving...'
-            : 'Save Case'}
-        </button>
+          <button
+            className="primary-button"
+            onClick={saveCase}
+            disabled={saving}
+          >
+            <Save size={16} />
+
+            {saving
+              ? 'Saving...'
+              : 'Save Case'}
+          </button>
+        </div>
 
       </div>
 
@@ -667,11 +686,7 @@ export default function RehabCase() {
 
         <div>
           <Activity size={18} />
-
-          <span>
-            CASE STATUS
-          </span>
-
+          <span>CASE STATUS</span>
           <strong>
             {formatLabel(
               rehabCase.case_status
@@ -680,14 +695,8 @@ export default function RehabCase() {
         </div>
 
         <div>
-          <ClipboardCheck
-            size={18}
-          />
-
-          <span>
-            SESSIONS
-          </span>
-
+          <ClipboardCheck size={18} />
+          <span>SESSIONS</span>
           <strong>
             {
               rehabCase.sessions_completed
@@ -700,32 +709,15 @@ export default function RehabCase() {
 
         <div>
           <Target size={18} />
-
-          <span>
-            GOALS
-          </span>
-
+          <span>GOALS</span>
           <strong>
-            {
-              goals.filter(
-                (goal) =>
-                  goal.goal_status ===
-                  'achieved'
-              ).length
-            }
-            /{goals.length}
+            {achievedGoals}/{goals.length}
           </strong>
         </div>
 
         <div>
-          <CalendarDays
-            size={18}
-          />
-
-          <span>
-            REASSESSMENT
-          </span>
-
+          <CalendarDays size={18} />
+          <span>REASSESSMENT</span>
           <strong>
             {formatDate(
               rehabCase.expected_reassessment_date
@@ -745,7 +737,6 @@ export default function RehabCase() {
 
           <div>
             <h2>Worker</h2>
-
             <p>
               Worker and occupational
               placement.
@@ -758,7 +749,6 @@ export default function RehabCase() {
 
           <label>
             <span>Worker</span>
-
             <input
               value={
                 worker
@@ -773,7 +763,6 @@ export default function RehabCase() {
             <span>
               Employee Number
             </span>
-
             <input
               value={
                 worker?.employee_number ||
@@ -784,10 +773,7 @@ export default function RehabCase() {
           </label>
 
           <label>
-            <span>
-              Job Profile
-            </span>
-
+            <span>Job Profile</span>
             <input
               value={
                 jobProfile?.title ||
@@ -798,10 +784,7 @@ export default function RehabCase() {
           </label>
 
           <label>
-            <span>
-              Referral Date
-            </span>
-
+            <span>Referral Date</span>
             <input
               value={formatDate(
                 rehabCase.referral_date
@@ -817,12 +800,86 @@ export default function RehabCase() {
       <div className="panel">
 
         <h2>
-          Rehabilitation Goals
+          Clinical Referral
+        </h2>
+
+        <div className="form-grid">
+
+          <label>
+            <span>Body Region</span>
+            <input
+              value={formatLabel(
+                rehabCase.affected_body_region
+              )}
+              disabled
+            />
+          </label>
+
+          <label>
+            <span>
+              Primary Condition
+            </span>
+            <input
+              value={
+                rehabCase.primary_condition ||
+                'Not recorded'
+              }
+              disabled
+            />
+          </label>
+
+        </div>
+
+        <label>
+          <span>Referral Reason</span>
+          <textarea
+            rows={4}
+            value={
+              rehabCase.referral_reason ||
+              ''
+            }
+            disabled
+          />
+        </label>
+
+        <label>
+          <span>Restrictions</span>
+          <textarea
+            rows={4}
+            value={
+              rehabCase.restrictions ||
+              ''
+            }
+            disabled
+          />
+        </label>
+
+        <label>
+          <span>
+            General Rehabilitation Goals
+          </span>
+          <textarea
+            rows={4}
+            value={
+              rehabCase.rehabilitation_goals ||
+              ''
+            }
+            disabled
+          />
+        </label>
+
+      </div>
+
+      <div className="panel">
+
+        <h2>
+          Measurable Rehabilitation Goals
         </h2>
 
         <p>
-          Track measurable functional
-          targets during rehabilitation.
+          Track functional targets and
+          progress toward occupational
+          demands.
         </p>
 
         <button
@@ -847,7 +904,6 @@ export default function RehabCase() {
               marginBottom: 25,
             }}
           >
-
             <label>
               <span>
                 Goal Description *
@@ -869,10 +925,7 @@ export default function RehabCase() {
             <div className="form-grid">
 
               <label>
-                <span>
-                  Baseline
-                </span>
-
+                <span>Baseline</span>
                 <input
                   type="number"
                   value={
@@ -887,10 +940,7 @@ export default function RehabCase() {
               </label>
 
               <label>
-                <span>
-                  Target
-                </span>
-
+                <span>Target</span>
                 <input
                   type="number"
                   value={
@@ -905,10 +955,7 @@ export default function RehabCase() {
               </label>
 
               <label>
-                <span>
-                  Unit
-                </span>
-
+                <span>Unit</span>
                 <select
                   value={
                     targetUnit
@@ -922,31 +969,24 @@ export default function RehabCase() {
                   <option value="kg">
                     kg
                   </option>
-
                   <option value="repetitions">
                     repetitions
                   </option>
-
                   <option value="minutes">
                     minutes
                   </option>
-
                   <option value="seconds">
                     seconds
                   </option>
-
                   <option value="metres">
                     metres
                   </option>
-
                   <option value="degrees">
                     degrees
                   </option>
-
                   <option value="%">
                     %
                   </option>
-
                 </select>
               </label>
 
@@ -954,7 +994,6 @@ export default function RehabCase() {
                 <span>
                   Target Date
                 </span>
-
                 <input
                   type="date"
                   value={
@@ -1001,9 +1040,7 @@ export default function RehabCase() {
                   <th>Baseline</th>
                   <th>Current</th>
                   <th>Target</th>
-                  <th>
-                    Target Date
-                  </th>
+                  <th>Target Date</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -1040,9 +1077,7 @@ export default function RehabCase() {
 
       <div className="panel">
 
-        <h2>
-          Case Management
-        </h2>
+        <h2>Case Management</h2>
 
         <div className="form-grid">
 
@@ -1062,19 +1097,15 @@ export default function RehabCase() {
               <option value="full_duty">
                 Full Duty
               </option>
-
               <option value="modified_duty">
                 Modified Duty
               </option>
-
               <option value="restricted_duty">
                 Restricted Duty
               </option>
-
               <option value="off_work">
                 Off Work
               </option>
-
               <option value="temporarily_unfit">
                 Temporarily Unfit
               </option>
@@ -1082,9 +1113,7 @@ export default function RehabCase() {
           </label>
 
           <label>
-            <span>
-              Case Status
-            </span>
+            <span>Case Status</span>
 
             <select
               value={caseStatus}
@@ -1097,19 +1126,15 @@ export default function RehabCase() {
               <option value="active">
                 Active
               </option>
-
               <option value="on_hold">
                 On Hold
               </option>
-
               <option value="ready_for_reassessment">
                 Ready for Reassessment
               </option>
-
               <option value="completed">
                 Completed
               </option>
-
               <option value="cancelled">
                 Cancelled
               </option>
@@ -1136,6 +1161,25 @@ export default function RehabCase() {
 
         </div>
 
+        {caseStatus ===
+          'ready_for_reassessment' && (
+          <div
+            style={{
+              marginTop: 20,
+            }}
+          >
+            <button
+              className="primary-button"
+              onClick={
+                startReassessment
+              }
+            >
+              <RefreshCw size={16} />
+              Start Reassessment FCE
+            </button>
+          </div>
+        )}
+
       </div>
 
       <div className="panel">
@@ -1150,7 +1194,6 @@ export default function RehabCase() {
             <h2>
               Rehabilitation Sessions
             </h2>
-
             <p>
               Treatment and functional
               progression history.
@@ -1192,9 +1235,7 @@ export default function RehabCase() {
                   <th>
                     Functional Progress
                   </th>
-                  <th>
-                    Next Plan
-                  </th>
+                  <th>Next Plan</th>
                 </tr>
               </thead>
 
@@ -1248,32 +1289,36 @@ export default function RehabCase() {
       <div className="panel">
 
         <h2>
-          Case Progress
+          Rehabilitation Progress
         </h2>
 
         <p>
-          Session completion:
-          {' '}
+          Session completion:{' '}
           <strong>
             {progressPercent}%
           </strong>
         </p>
 
         <p>
-          Goal achievement:
-          {' '}
+          Goals achieved:{' '}
           <strong>
-            {
-              goals.filter(
-                (goal) =>
-                  goal.goal_status ===
-                  'achieved'
-              ).length
-            }
-            {' of '}
+            {achievedGoals} of{' '}
             {goals.length}
           </strong>
         </p>
+
+        <button
+          className="secondary-button"
+          onClick={
+            startReassessment
+          }
+          style={{
+            marginTop: 20,
+          }}
+        >
+          <RefreshCw size={16} />
+          Review for Reassessment
+        </button>
 
       </div>
 
@@ -1288,17 +1333,20 @@ function GoalRow({
   deleteGoal,
 }: {
   goal: RehabGoal
+
   formatDate: (
     value:
       | string
       | null
       | undefined
   ) => string
+
   updateGoal: (
     goal: RehabGoal,
     current: string,
     status: string
   ) => Promise<void>
+
   deleteGoal: (
     id: string
   ) => Promise<void>
@@ -1367,23 +1415,18 @@ function GoalRow({
           <option value="not_started">
             Not Started
           </option>
-
           <option value="in_progress">
             In Progress
           </option>
-
           <option value="achieved">
             Achieved
           </option>
-
           <option value="partially_achieved">
             Partially Achieved
           </option>
-
           <option value="not_achieved">
             Not Achieved
           </option>
-
           <option value="cancelled">
             Cancelled
           </option>
