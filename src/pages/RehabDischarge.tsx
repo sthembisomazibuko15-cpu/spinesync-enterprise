@@ -1,10 +1,10 @@
 import {
   ArrowLeft,
-  BriefcaseMedical,
   CheckCircle2,
   ClipboardCheck,
+  RefreshCw,
   Save,
-  ShieldCheck,
+  ShieldAlert,
   UserRound,
 } from 'lucide-react'
 
@@ -35,6 +35,7 @@ type RehabCase = {
   case_status: string
   discharge_outcome: string | null
   discharge_summary: string | null
+  discharge_recommendations: string | null
   actual_reassessment_date: string | null
 }
 
@@ -62,8 +63,16 @@ type FceResult = {
   assessor_rating: string | null
 }
 
+type ResultSummary = {
+  pass: number
+  borderline: number
+  fail: number
+  notTested: number
+}
+
 export default function RehabDischarge() {
   const { id } = useParams()
+
   const navigate = useNavigate()
 
   const [rehabCase, setRehabCase] =
@@ -72,45 +81,29 @@ export default function RehabDischarge() {
   const [worker, setWorker] =
     useState<Worker | null>(null)
 
-  const [
-    initialAssessment,
-    setInitialAssessment,
-  ] = useState<Assessment | null>(null)
+  const [originalAssessment, setOriginalAssessment] =
+    useState<Assessment | null>(null)
 
-  const [
-    reassessment,
-    setReassessment,
-  ] = useState<Assessment | null>(null)
+  const [reassessment, setReassessment] =
+    useState<Assessment | null>(null)
 
-  const [
-    reassessmentResults,
-    setReassessmentResults,
-  ] = useState<FceResult[]>([])
+  const [results, setResults] =
+    useState<FceResult[]>([])
 
-  const [
-    dischargeOutcome,
-    setDischargeOutcome,
-  ] = useState('')
+  const [dischargeOutcome, setDischargeOutcome] =
+    useState('')
 
-  const [
-    finalWorkStatus,
-    setFinalWorkStatus,
-  ] = useState('')
+  const [finalWorkStatus, setFinalWorkStatus] =
+    useState('')
 
-  const [
-    dischargeSummary,
-    setDischargeSummary,
-  ] = useState('')
+  const [dischargeSummary, setDischargeSummary] =
+    useState('')
 
-  const [
-    finalRestrictions,
-    setFinalRestrictions,
-  ] = useState('')
+  const [finalRestrictions, setFinalRestrictions] =
+    useState('')
 
-  const [
-    finalRecommendations,
-    setFinalRecommendations,
-  ] = useState('')
+  const [finalRecommendations, setFinalRecommendations] =
+    useState('')
 
   const [loading, setLoading] =
     useState(true)
@@ -125,13 +118,17 @@ export default function RehabDischarge() {
     useState<string | null>(null)
 
   useEffect(() => {
-    if (id) {
-      loadPage()
-    }
+    loadPage()
   }, [id])
 
   async function loadPage() {
-    if (!id) return
+    if (!id) {
+      setError(
+        'Rehabilitation case ID is missing.'
+      )
+      setLoading(false)
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -155,16 +152,14 @@ export default function RehabDischarge() {
         case_status,
         discharge_outcome,
         discharge_summary,
+        discharge_recommendations,
         actual_reassessment_date
       `)
       .eq('id', id)
       .single()
 
-    if (caseError || !caseData) {
-      setError(
-        caseError?.message ||
-          'Rehabilitation case not found.'
-      )
+    if (caseError) {
+      setError(caseError.message)
       setLoading(false)
       return
     }
@@ -174,56 +169,90 @@ export default function RehabDischarge() {
 
     setRehabCase(loadedCase)
 
-    setDischargeOutcome(
-      loadedCase.discharge_outcome || ''
-    )
+    const [
+      workerResponse,
+      reassessmentResponse,
+    ] = await Promise.all([
+      supabase
+        .from('workers')
+        .select(`
+          id,
+          employee_number,
+          first_name,
+          last_name,
+          fitness_status
+        `)
+        .eq(
+          'id',
+          loadedCase.worker_id
+        )
+        .single(),
 
-    setFinalWorkStatus(
-      loadedCase.current_work_status || ''
-    )
+      supabase
+        .from('assessments')
+        .select(`
+          id,
+          assessment_date,
+          assessment_status,
+          final_outcome,
+          restrictions,
+          recommendations,
+          pain_score
+        `)
+        .eq(
+          'rehabilitation_case_id',
+          loadedCase.id
+        )
+        .eq(
+          'assessment_phase',
+          'reassessment'
+        )
+        .order(
+          'assessment_date',
+          {
+            ascending: false,
+          }
+        )
+        .order(
+          'created_at',
+          {
+            ascending: false,
+          }
+        ),
+    ])
 
-    setDischargeSummary(
-      loadedCase.discharge_summary || ''
-    )
-
-    setFinalRestrictions(
-      loadedCase.restrictions || ''
-    )
-
-    const {
-      data: workerData,
-      error: workerError,
-    } = await supabase
-      .from('workers')
-      .select(`
-        id,
-        employee_number,
-        first_name,
-        last_name,
-        fitness_status
-      `)
-      .eq(
-        'id',
-        loadedCase.worker_id
-      )
-      .single()
-
-    if (workerError || !workerData) {
+    if (workerResponse.error) {
       setError(
-        workerError?.message ||
-          'Worker not found.'
+        workerResponse.error.message
       )
       setLoading(false)
       return
     }
 
     setWorker(
-      workerData as Worker
+      workerResponse.data as Worker
     )
 
-    if (loadedCase.assessment_id) {
+    if (
+      reassessmentResponse.error
+    ) {
+      setError(
+        reassessmentResponse.error.message
+      )
+      setLoading(false)
+      return
+    }
+
+    let loadedOriginal:
+      | Assessment
+      | null = null
+
+    if (
+      loadedCase.assessment_id
+    ) {
       const {
-        data: initialData,
+        data,
+        error,
       } = await supabase
         .from('assessments')
         .select(`
@@ -241,87 +270,40 @@ export default function RehabDischarge() {
         )
         .single()
 
-      if (initialData) {
-        setInitialAssessment(
-          initialData as Assessment
-        )
+      if (!error && data) {
+        loadedOriginal =
+          data as Assessment
       }
     }
 
-    const {
-      data: reassessmentData,
-      error: reassessmentError,
-    } = await supabase
-      .from('assessments')
-      .select(`
-        id,
-        assessment_date,
-        assessment_status,
-        final_outcome,
-        restrictions,
-        recommendations,
-        pain_score,
-        created_at
-      `)
-      .eq(
-        'rehabilitation_case_id',
-        id
-      )
-      .eq(
-        'assessment_phase',
-        'reassessment'
-      )
-      .order(
-        'assessment_date',
-        {
-          ascending: false,
-        }
-      )
-      .order(
-        'created_at',
-        {
-          ascending: false,
-        }
-      )
+    setOriginalAssessment(
+      loadedOriginal
+    )
 
-    if (reassessmentError) {
-      setError(
-        reassessmentError.message
-      )
-      setLoading(false)
-      return
-    }
+    const reassessments =
+      (reassessmentResponse.data ??
+        []) as Assessment[]
 
-    if (
-      reassessmentData &&
-      reassessmentData.length > 0
-    ) {
-      const completed =
-        reassessmentData.find(
-          (item) =>
-            item.assessment_status ===
-            'completed'
-        )
+    const selectedReassessment =
+      reassessments.find(
+        (item) =>
+          item.assessment_status ===
+          'completed'
+      ) ||
+      reassessments[0] ||
+      null
 
-      const latest =
-        (completed ||
-          reassessmentData[0]) as Assessment
+    setReassessment(
+      selectedReassessment
+    )
 
-      setReassessment(latest)
+    let loadedResults:
+      FceResult[] = []
 
-      setFinalRestrictions(
-        latest.restrictions ||
-          loadedCase.restrictions ||
-          ''
-      )
-
-      setFinalRecommendations(
-        latest.recommendations || ''
-      )
-
+    if (selectedReassessment) {
       const {
-        data: resultData,
-        error: resultError,
+        data,
+        error,
       } = await supabase
         .from('fce_results')
         .select(`
@@ -331,30 +313,60 @@ export default function RehabDischarge() {
         `)
         .eq(
           'assessment_id',
-          latest.id
+          selectedReassessment.id
         )
 
-      if (resultError) {
-        setError(
-          resultError.message
-        )
+      if (error) {
+        setError(error.message)
         setLoading(false)
         return
       }
 
-      setReassessmentResults(
-        (resultData ??
-          []) as FceResult[]
-      )
+      loadedResults =
+        (data ?? []) as FceResult[]
+    }
 
-      if (
-        !loadedCase.discharge_outcome &&
-        latest.final_outcome
-      ) {
-        applySuggestedDecision(
-          latest.final_outcome
-        )
-      }
+    setResults(loadedResults)
+
+    setDischargeOutcome(
+      loadedCase.discharge_outcome ||
+        ''
+    )
+
+    setFinalWorkStatus(
+      loadedCase.current_work_status ||
+        ''
+    )
+
+    setDischargeSummary(
+      loadedCase.discharge_summary ||
+        ''
+    )
+
+    setFinalRestrictions(
+      loadedCase.restrictions ||
+        selectedReassessment
+          ?.restrictions ||
+        ''
+    )
+
+    setFinalRecommendations(
+      loadedCase
+        .discharge_recommendations ||
+        selectedReassessment
+          ?.recommendations ||
+        ''
+    )
+
+    if (
+      !loadedCase.discharge_outcome &&
+      selectedReassessment
+        ?.final_outcome
+    ) {
+      applySuggestedDecision(
+        selectedReassessment
+          .final_outcome
+      )
     }
 
     setLoading(false)
@@ -409,41 +421,269 @@ export default function RehabDischarge() {
   }
 
   const resultSummary =
-    useMemo(() => {
-      let pass = 0
-      let borderline = 0
-      let fail = 0
-      let notTested = 0
+    useMemo<ResultSummary>(() => {
+      const summary = {
+        pass: 0,
+        borderline: 0,
+        fail: 0,
+        notTested: 0,
+      }
 
-      reassessmentResults.forEach(
-        (item) => {
-          const value =
-            item.assessor_rating ||
-            item.result
+      results.forEach((item) => {
+        const rating =
+          item.assessor_rating ||
+          item.result
 
-          if (value === 'pass') {
-            pass += 1
-          } else if (
-            value === 'borderline'
-          ) {
-            borderline += 1
-          } else if (
-            value === 'fail'
-          ) {
-            fail += 1
-          } else {
-            notTested += 1
-          }
+        if (rating === 'pass') {
+          summary.pass += 1
+        } else if (
+          rating === 'borderline'
+        ) {
+          summary.borderline += 1
+        } else if (
+          rating === 'fail'
+        ) {
+          summary.fail += 1
+        } else {
+          summary.notTested += 1
         }
+      })
+
+      return summary
+    }, [results])
+
+  function workerFitnessStatus() {
+    switch (dischargeOutcome) {
+      case 'return_to_full_duty':
+        return 'fit'
+
+      case 'return_to_modified_duty':
+        return 'fit_with_restrictions'
+
+      case 'temporarily_unfit':
+        return 'temporarily_unfit'
+
+      case 'continue_rehabilitation':
+        return 'rehabilitation'
+
+      case 'further_review_required':
+        return 'reassessment_required'
+
+      default:
+        return null
+    }
+  }
+
+  async function saveDecision() {
+    if (!rehabCase) {
+      return
+    }
+
+    if (!dischargeOutcome) {
+      setError(
+        'Select a final return-to-work decision.'
+      )
+      return
+    }
+
+    if (!finalWorkStatus) {
+      setError(
+        'Select the final work status.'
+      )
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from('rehabilitation_cases')
+      .update({
+        discharge_outcome:
+          dischargeOutcome,
+
+        discharge_summary:
+          dischargeSummary.trim() ||
+          null,
+
+        discharge_recommendations:
+          finalRecommendations.trim() ||
+          null,
+
+        current_work_status:
+          finalWorkStatus,
+
+        restrictions:
+          finalRestrictions.trim() ||
+          null,
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        'id',
+        rehabCase.id
       )
 
-      return {
-        pass,
-        borderline,
-        fail,
-        notTested,
+    if (updateError) {
+      setError(
+        updateError.message
+      )
+      setSaving(false)
+      return
+    }
+
+    setSaving(false)
+
+    await loadPage()
+  }
+
+  async function completeAndDischarge() {
+    if (
+      !rehabCase ||
+      !worker
+    ) {
+      return
+    }
+
+    if (!reassessment) {
+      setError(
+        'A post-rehabilitation FCE is required before completing discharge.'
+      )
+      return
+    }
+
+    if (
+      reassessment.assessment_status !==
+      'completed'
+    ) {
+      setError(
+        'The post-rehabilitation FCE must be completed before final discharge.'
+      )
+      return
+    }
+
+    if (!dischargeOutcome) {
+      setError(
+        'Select a final return-to-work decision.'
+      )
+      return
+    }
+
+    if (!finalWorkStatus) {
+      setError(
+        'Select the final work status.'
+      )
+      return
+    }
+
+    if (
+      dischargeOutcome ===
+      'continue_rehabilitation'
+    ) {
+      setError(
+        'A case marked Continue Rehabilitation should remain open.'
+      )
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        'Complete this rehabilitation case and apply the final return-to-work decision?'
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    setCompleting(true)
+    setError(null)
+
+    const today =
+      new Date()
+        .toISOString()
+        .slice(0, 10)
+
+    const {
+      error: caseUpdateError,
+    } = await supabase
+      .from('rehabilitation_cases')
+      .update({
+        discharge_outcome:
+          dischargeOutcome,
+
+        discharge_summary:
+          dischargeSummary.trim() ||
+          null,
+
+        discharge_recommendations:
+          finalRecommendations.trim() ||
+          null,
+
+        current_work_status:
+          finalWorkStatus,
+
+        restrictions:
+          finalRestrictions.trim() ||
+          null,
+
+        actual_reassessment_date:
+          reassessment.assessment_date ||
+          today,
+
+        case_status:
+          'completed',
+
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        'id',
+        rehabCase.id
+      )
+
+    if (caseUpdateError) {
+      setError(
+        caseUpdateError.message
+      )
+      setCompleting(false)
+      return
+    }
+
+    const fitnessStatus =
+      workerFitnessStatus()
+
+    if (fitnessStatus) {
+      const {
+        error: workerUpdateError,
+      } = await supabase
+        .from('workers')
+        .update({
+          fitness_status:
+            fitnessStatus,
+        })
+        .eq(
+          'id',
+          worker.id
+        )
+
+      if (workerUpdateError) {
+        setError(
+          `The rehabilitation case was completed, but the worker fitness status could not be updated: ${workerUpdateError.message}`
+        )
+        setCompleting(false)
+        return
       }
-    }, [reassessmentResults])
+    }
+
+    setCompleting(false)
+
+    navigate(
+      `/rehabilitation/${rehabCase.id}`
+    )
+  }
 
   function formatLabel(
     value:
@@ -487,236 +727,13 @@ export default function RehabDischarge() {
     )
   }
 
-  function workerFitnessStatus() {
-    switch (dischargeOutcome) {
-      case 'return_to_full_duty':
-        return 'fit'
-
-      case 'return_to_modified_duty':
-        return 'fit_with_restrictions'
-
-      case 'temporarily_unfit':
-        return 'temporarily_unfit'
-
-      case 'continue_rehabilitation':
-        return 'rehabilitation'
-
-      case 'further_review_required':
-        return 'reassessment_required'
-
-      default:
-        return null
-    }
-  }
-
-  async function saveDecision() {
-    if (!rehabCase) return
-
-    if (!dischargeOutcome) {
-      setError(
-        'Please select a return-to-work decision.'
-      )
-      return
-    }
-
-    if (!finalWorkStatus) {
-      setError(
-        'Please select the final work status.'
-      )
-      return
-    }
-
-    setSaving(true)
-    setError(null)
-
-    const {
-      error: updateError,
-    } = await supabase
-      .from('rehabilitation_cases')
-      .update({
-        discharge_outcome:
-          dischargeOutcome,
-
-        discharge_summary:
-          dischargeSummary ||
-          null,
-
-        current_work_status:
-          finalWorkStatus,
-
-        restrictions:
-          finalRestrictions ||
-          null,
-
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq(
-        'id',
-        rehabCase.id
-      )
-
-    if (updateError) {
-      setError(
-        updateError.message
-      )
-      setSaving(false)
-      return
-    }
-
-    setSaving(false)
-
-    await loadPage()
-  }
-
-  async function completeAndDischarge() {
-    if (
-      !rehabCase ||
-      !worker
-    ) {
-      return
-    }
-
-    if (!reassessment) {
-      setError(
-        'A linked post-rehabilitation reassessment is required before discharge.'
-      )
-      return
-    }
-
-    if (
-      reassessment.assessment_status !==
-      'completed'
-    ) {
-      setError(
-        'The post-rehabilitation FCE must be completed before the rehabilitation case can be discharged.'
-      )
-      return
-    }
-
-    if (!dischargeOutcome) {
-      setError(
-        'Please select the final return-to-work decision.'
-      )
-      return
-    }
-
-    if (!finalWorkStatus) {
-      setError(
-        'Please select the final work status.'
-      )
-      return
-    }
-
-    if (
-      dischargeOutcome ===
-      'continue_rehabilitation'
-    ) {
-      setError(
-        'A case marked Continue Rehabilitation should remain active and should not be discharged.'
-      )
-      return
-    }
-
-    const confirmed =
-      window.confirm(
-        'Complete this rehabilitation case and record the final return-to-work decision?'
-      )
-
-    if (!confirmed) {
-      return
-    }
-
-    setCompleting(true)
-    setError(null)
-
-    const today =
-      new Date()
-        .toISOString()
-        .slice(0, 10)
-
-    const {
-      error: caseError,
-    } = await supabase
-      .from('rehabilitation_cases')
-      .update({
-        discharge_outcome:
-          dischargeOutcome,
-
-        discharge_summary:
-          dischargeSummary ||
-          null,
-
-        current_work_status:
-          finalWorkStatus,
-
-        restrictions:
-          finalRestrictions ||
-          null,
-
-        actual_reassessment_date:
-          reassessment.assessment_date ||
-          today,
-
-        case_status:
-          'completed',
-
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq(
-        'id',
-        rehabCase.id
-      )
-
-    if (caseError) {
-      setError(
-        caseError.message
-      )
-      setCompleting(false)
-      return
-    }
-
-    const fitnessStatus =
-      workerFitnessStatus()
-
-    if (fitnessStatus) {
-      const {
-        error: workerError,
-      } = await supabase
-        .from('workers')
-        .update({
-          fitness_status:
-            fitnessStatus,
-        })
-        .eq(
-          'id',
-          worker.id
-        )
-
-      if (workerError) {
-        setError(
-          `The rehabilitation case was completed, but the worker fitness status could not be updated: ${workerError.message}`
-        )
-        setCompleting(false)
-        return
-      }
-    }
-
-    setCompleting(false)
-
-    navigate(
-      `/rehabilitation/${rehabCase.id}`
-    )
-  }
-
   if (loading) {
     return (
       <div className="auth-loading">
         <div className="loading-spinner" />
 
         <p>
-          Loading return-to-work
+          Loading final RTW
           decision...
         </p>
       </div>
@@ -732,8 +749,20 @@ export default function RehabDischarge() {
 
         <div className="error-message">
           {error ||
-            'Unable to load rehabilitation case.'}
+            'Rehabilitation case could not be loaded.'}
         </div>
+
+        <button
+          className="secondary-button"
+          onClick={() =>
+            navigate(
+              '/rehabilitation'
+            )
+          }
+        >
+          <ArrowLeft size={16} />
+          Back to Rehabilitation
+        </button>
 
       </div>
     )
@@ -745,23 +774,8 @@ export default function RehabDischarge() {
       <div className="page-heading">
 
         <div>
-
-          <button
-            className="secondary-button"
-            onClick={() =>
-              navigate(
-                `/rehabilitation/${rehabCase.id}`
-              )
-            }
-            style={{
-              marginBottom: 14,
-            }}
-          >
-            <ArrowLeft size={16} />
-            Back to Case
-          </button>
-
           <span className="eyebrow">
+            REHABILITATION &
             RETURN-TO-WORK
           </span>
 
@@ -770,12 +784,39 @@ export default function RehabDischarge() {
           </h1>
 
           <p>
-            Record the clinician's final
-            return-to-work decision and
-            rehabilitation discharge
-            outcome.
+            Record the clinician's
+            final rehabilitation,
+            functional-capacity and
+            return-to-work decision.
           </p>
+        </div>
 
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <button
+            className="secondary-button"
+            onClick={() =>
+              navigate(
+                `/rehabilitation/${rehabCase.id}`
+              )
+            }
+          >
+            <ArrowLeft size={16} />
+            Back to Case
+          </button>
+
+          <button
+            className="secondary-button"
+            onClick={loadPage}
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
 
       </div>
@@ -800,8 +841,8 @@ export default function RehabDischarge() {
             </h2>
 
             <p>
-              Rehabilitation case
-              identification.
+              Rehabilitation case and
+              worker identification.
             </p>
           </div>
 
@@ -813,7 +854,9 @@ export default function RehabDischarge() {
             <span>Worker</span>
 
             <input
-              value={`${worker.first_name} ${worker.last_name}`}
+              value={
+                `${worker.first_name} ${worker.last_name}`
+              }
               disabled
             />
           </label>
@@ -862,26 +905,27 @@ export default function RehabDischarge() {
 
           <label>
             <span>
-              Body Region
-            </span>
-
-            <input
-              value={formatLabel(
-                rehabCase.affected_body_region
-              )}
-              disabled
-            />
-          </label>
-
-          <label>
-            <span>
               Condition
             </span>
 
             <input
               value={
                 rehabCase.primary_condition ||
-                'Not recorded'
+                ''
+              }
+              disabled
+            />
+          </label>
+
+          <label>
+            <span>
+              Body Region
+            </span>
+
+            <input
+              value={
+                rehabCase.affected_body_region ||
+                ''
               }
               disabled
             />
@@ -894,7 +938,9 @@ export default function RehabDischarge() {
       <div className="fce-summary-row">
 
         <div>
-          <ClipboardCheck size={18} />
+          <ClipboardCheck
+            size={18}
+          />
 
           <span>
             SESSIONS
@@ -905,8 +951,10 @@ export default function RehabDischarge() {
               rehabCase.sessions_completed
             }
             /
-            {rehabCase.planned_sessions ??
-              '—'}
+            {
+              rehabCase.planned_sessions ||
+              '—'
+            }
           </strong>
         </div>
 
@@ -923,19 +971,21 @@ export default function RehabDischarge() {
         </div>
 
         <div>
-          <BriefcaseMedical size={18} />
+          <ShieldAlert size={18} />
 
           <span>
             BORDERLINE
           </span>
 
           <strong>
-            {resultSummary.borderline}
+            {
+              resultSummary.borderline
+            }
           </strong>
         </div>
 
         <div>
-          <ShieldCheck size={18} />
+          <ShieldAlert size={18} />
 
           <span>
             FAILED
@@ -950,9 +1000,27 @@ export default function RehabDischarge() {
 
       <div className="panel">
 
-        <h2>
-          Functional Reassessment
-        </h2>
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <ClipboardCheck
+              size={20}
+            />
+          </div>
+
+          <div>
+            <h2>
+              Functional Reassessment
+            </h2>
+
+            <p>
+              Initial and
+              post-rehabilitation FCE
+              information.
+            </p>
+          </div>
+
+        </div>
 
         <div className="form-grid">
 
@@ -962,13 +1030,10 @@ export default function RehabDischarge() {
             </span>
 
             <input
-              value={
-                initialAssessment
-                  ? formatDate(
-                      initialAssessment.assessment_date
-                    )
-                  : 'Not available'
-              }
+              value={formatDate(
+                originalAssessment
+                  ?.assessment_date
+              )}
               disabled
             />
           </label>
@@ -979,13 +1044,10 @@ export default function RehabDischarge() {
             </span>
 
             <input
-              value={
-                initialAssessment
-                  ? formatLabel(
-                      initialAssessment.final_outcome
-                    )
-                  : 'Not available'
-              }
+              value={formatLabel(
+                originalAssessment
+                  ?.final_outcome
+              )}
               disabled
             />
           </label>
@@ -996,13 +1058,10 @@ export default function RehabDischarge() {
             </span>
 
             <input
-              value={
+              value={formatDate(
                 reassessment
-                  ? formatDate(
-                      reassessment.assessment_date
-                    )
-                  : 'Not available'
-              }
+                  ?.assessment_date
+              )}
               disabled
             />
           </label>
@@ -1013,13 +1072,10 @@ export default function RehabDischarge() {
             </span>
 
             <input
-              value={
+              value={formatLabel(
                 reassessment
-                  ? formatLabel(
-                      reassessment.assessment_status
-                    )
-                  : 'Not available'
-              }
+                  ?.assessment_status
+              )}
               disabled
             />
           </label>
@@ -1030,13 +1086,10 @@ export default function RehabDischarge() {
             </span>
 
             <input
-              value={
+              value={formatLabel(
                 reassessment
-                  ? formatLabel(
-                      reassessment.final_outcome
-                    )
-                  : 'Not available'
-              }
+                  ?.final_outcome
+              )}
               disabled
             />
           </label>
@@ -1048,12 +1101,9 @@ export default function RehabDischarge() {
 
             <input
               value={
-                reassessment?.pain_score !==
-                null &&
-                reassessment?.pain_score !==
-                undefined
-                  ? `${reassessment.pain_score}/10`
-                  : 'Not recorded'
+                reassessment
+                  ?.pain_score ??
+                '—'
               }
               disabled
             />
@@ -1094,10 +1144,11 @@ export default function RehabDischarge() {
             >
               {reassessment.assessment_status ===
               'completed'
-                ? 'View Reassessment Report'
+                ? 'View Reassessment'
                 : 'Continue Reassessment'}
             </button>
           )}
+
         </div>
 
       </div>
@@ -1109,19 +1160,23 @@ export default function RehabDischarge() {
         </h2>
 
         <p>
-          Select the clinician-determined
-          occupational outcome after
-          considering the reassessment,
-          rehabilitation progress,
-          restrictions and documented job
-          demands.
+          Record the final professional
+          decision after reviewing the
+          rehabilitation programme,
+          functional reassessment and
+          occupational demands.
         </p>
 
-        <div className="form-grid">
+        <div
+          className="form-grid"
+          style={{
+            marginTop: 20,
+          }}
+        >
 
           <label>
             <span>
-              RTW Decision *
+              RTW Decision
             </span>
 
             <select
@@ -1162,7 +1217,7 @@ export default function RehabDischarge() {
 
           <label>
             <span>
-              Final Work Status *
+              Final Work Status
             </span>
 
             <select
@@ -1203,13 +1258,17 @@ export default function RehabDischarge() {
 
         </div>
 
-        <label>
+        <label
+          style={{
+            display: 'block',
+            marginTop: 20,
+          }}
+        >
           <span>
             Final Restrictions
           </span>
 
           <textarea
-            rows={4}
             value={
               finalRestrictions
             }
@@ -1218,17 +1277,22 @@ export default function RehabDischarge() {
                 event.target.value
               )
             }
-            placeholder="Record any final occupational restrictions or limitations."
+            rows={4}
+            placeholder="Record any occupational or functional restrictions..."
           />
         </label>
 
-        <label>
+        <label
+          style={{
+            display: 'block',
+            marginTop: 20,
+          }}
+        >
           <span>
             Recommendations
           </span>
 
           <textarea
-            rows={4}
             value={
               finalRecommendations
             }
@@ -1237,17 +1301,22 @@ export default function RehabDischarge() {
                 event.target.value
               )
             }
-            placeholder="Follow-up, ergonomic controls, work modification or surveillance recommendations."
+            rows={4}
+            placeholder="Record final rehabilitation, ergonomic, work-conditioning or RTW recommendations..."
           />
         </label>
 
-        <label>
+        <label
+          style={{
+            display: 'block',
+            marginTop: 20,
+          }}
+        >
           <span>
             Discharge Summary
           </span>
 
           <textarea
-            rows={6}
             value={
               dischargeSummary
             }
@@ -1256,7 +1325,8 @@ export default function RehabDischarge() {
                 event.target.value
               )
             }
-            placeholder="Summarise rehabilitation progress, functional response, residual limitations and rationale for the final RTW decision."
+            rows={5}
+            placeholder="Summarise rehabilitation progress, reassessment findings and the basis for the final RTW decision..."
           />
         </label>
 
@@ -1264,70 +1334,91 @@ export default function RehabDischarge() {
 
       <div className="panel">
 
-        <h2>
-          Professional Decision
-        </h2>
+        <div className="assessment-section-title">
+
+          <div className="assessment-section-icon">
+            <ShieldAlert
+              size={20}
+            />
+          </div>
+
+          <div>
+            <h2>
+              Professional Decision
+            </h2>
+
+            <p>
+              Clinical and occupational
+              interpretation.
+            </p>
+          </div>
+
+        </div>
 
         <p>
-          SpineSync records and organises
-          rehabilitation and functional
-          capacity information. The final
-          return-to-work decision remains
-          the professional determination
-          of the responsible clinician or
-          assessor and should be made
-          within their professional scope
-          and the mine's occupational
-          health process.
+          SpineSync records functional
+          capacity findings,
+          rehabilitation progress and
+          occupational-demand
+          information to support
+          professional decision-making.
+          The final return-to-work and
+          fitness decision remains the
+          responsibility of the
+          appropriately registered
+          professional and should be
+          interpreted together with the
+          worker's clinical condition,
+          job demands and applicable
+          occupational-health
+          requirements.
         </p>
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            flexWrap: 'wrap',
-            marginTop: 20,
-          }}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+          justifyContent:
+            'flex-end',
+        }}
+      >
+
+        <button
+          className="secondary-button"
+          onClick={saveDecision}
+          disabled={
+            saving ||
+            completing
+          }
         >
-          <button
-            className="secondary-button"
-            onClick={saveDecision}
-            disabled={
-              saving ||
-              completing
-            }
-          >
-            <Save size={16} />
+          <Save size={16} />
 
-            {saving
-              ? 'Saving...'
-              : 'Save Decision'}
-          </button>
+          {saving
+            ? 'Saving...'
+            : 'Save Decision'}
+        </button>
 
-          <button
-            className="primary-button"
-            onClick={
-              completeAndDischarge
-            }
-            disabled={
-              saving ||
-              completing ||
-              rehabCase.case_status ===
-                'completed'
-            }
-          >
-            <CheckCircle2
-              size={16}
-            />
+        <button
+          className="primary-button"
+          onClick={
+            completeAndDischarge
+          }
+          disabled={
+            saving ||
+            completing
+          }
+        >
+          <CheckCircle2
+            size={16}
+          />
 
-            {completing
-              ? 'Completing...'
-              : rehabCase.case_status ===
-                  'completed'
-                ? 'Case Completed'
-                : 'Complete & Discharge'}
-          </button>
-        </div>
+          {completing
+            ? 'Completing...'
+            : 'Complete & Discharge'}
+        </button>
 
       </div>
 
