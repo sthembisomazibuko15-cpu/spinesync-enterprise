@@ -19,6 +19,7 @@ import Onboarding from './pages/Onboarding'
 import RehabCase from './pages/RehabCase'
 import RehabComparison from './pages/RehabComparison'
 import RehabDischarge from './pages/RehabDischarge'
+import RehabDischargeReport from './pages/RehabDischargeReport'
 import RehabReassessment from './pages/RehabReassessment'
 import Rehabilitation from './pages/Rehabilitation'
 import Reports from './pages/Reports'
@@ -29,7 +30,10 @@ import Workers from './pages/Workers'
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route
+        path="/login"
+        element={<Login />}
+      />
 
       <Route
         path="/onboarding"
@@ -50,22 +54,70 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route
+          index
+          element={
+            <Navigate
+              to="/dashboard"
+              replace
+            />
+          }
+        />
 
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route
+          path="dashboard"
+          element={<Dashboard />}
+        />
 
-        <Route path="workers" element={<Workers />} />
-        <Route path="workers/:id" element={<WorkerProfile />} />
+        <Route
+          path="workers"
+          element={<Workers />}
+        />
 
-        <Route path="assessments" element={<Assessments />} />
-        <Route path="assessments/new" element={<NewAssessment />} />
-        <Route path="assessments/:id" element={<FceTesting />} />
-        <Route path="assessments/:id/outcome" element={<FceOutcome />} />
-        <Route path="assessments/:id/record" element={<FceRecord />} />
+        <Route
+          path="workers/:id"
+          element={<WorkerProfile />}
+        />
 
-        <Route path="rehabilitation" element={<Rehabilitation />} />
-        <Route path="rehabilitation/new" element={<NewRehabCase />} />
-        <Route path="rehabilitation/:id" element={<RehabCase />} />
+        <Route
+          path="assessments"
+          element={<Assessments />}
+        />
+
+        <Route
+          path="assessments/new"
+          element={<NewAssessment />}
+        />
+
+        <Route
+          path="assessments/:id"
+          element={<FceTesting />}
+        />
+
+        <Route
+          path="assessments/:id/outcome"
+          element={<FceOutcome />}
+        />
+
+        <Route
+          path="assessments/:id/record"
+          element={<FceRecord />}
+        />
+
+        <Route
+          path="rehabilitation"
+          element={<Rehabilitation />}
+        />
+
+        <Route
+          path="rehabilitation/new"
+          element={<NewRehabCase />}
+        />
+
+        <Route
+          path="rehabilitation/:id"
+          element={<RehabCase />}
+        />
 
         <Route
           path="rehabilitation/:id/sessions/new"
@@ -87,10 +139,30 @@ export default function App() {
           element={<RehabDischarge />}
         />
 
-        <Route path="mining-structure" element={<MiningStructure />} />
-        <Route path="job-profiles" element={<JobProfiles />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="settings" element={<Settings />} />
+        <Route
+          path="rehabilitation/:id/report"
+          element={<RehabDischargeReport />}
+        />
+
+        <Route
+          path="mining-structure"
+          element={<MiningStructure />}
+        />
+
+        <Route
+          path="job-profiles"
+          element={<JobProfiles />}
+        />
+
+        <Route
+          path="reports"
+          element={<Reports />}
+        />
+
+        <Route
+          path="settings"
+          element={<Settings />}
+        />
       </Route>
     </Routes>
   )
