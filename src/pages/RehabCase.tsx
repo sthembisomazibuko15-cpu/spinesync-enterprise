@@ -1,6 +1,7 @@
 import {
   Activity,
   ArrowLeft,
+  BarChart3,
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
@@ -582,6 +583,16 @@ export default function RehabCase() {
     )
   }
 
+  function viewComparison() {
+    if (!rehabCase) {
+      return
+    }
+
+    navigate(
+      `/rehabilitation/${rehabCase.id}/comparison`
+    )
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">
@@ -651,6 +662,14 @@ export default function RehabCase() {
             flexWrap: 'wrap',
           }}
         >
+          <button
+            className="secondary-button"
+            onClick={viewComparison}
+          >
+            <BarChart3 size={16} />
+            View FCE Comparison
+          </button>
+
           <button
             className="secondary-button"
             onClick={
@@ -1097,15 +1116,19 @@ export default function RehabCase() {
               <option value="full_duty">
                 Full Duty
               </option>
+
               <option value="modified_duty">
                 Modified Duty
               </option>
+
               <option value="restricted_duty">
                 Restricted Duty
               </option>
+
               <option value="off_work">
                 Off Work
               </option>
+
               <option value="temporarily_unfit">
                 Temporarily Unfit
               </option>
@@ -1126,15 +1149,19 @@ export default function RehabCase() {
               <option value="active">
                 Active
               </option>
+
               <option value="on_hold">
                 On Hold
               </option>
+
               <option value="ready_for_reassessment">
                 Ready for Reassessment
               </option>
+
               <option value="completed">
                 Completed
               </option>
+
               <option value="cancelled">
                 Cancelled
               </option>
@@ -1161,13 +1188,16 @@ export default function RehabCase() {
 
         </div>
 
-        {caseStatus ===
-          'ready_for_reassessment' && (
-          <div
-            style={{
-              marginTop: 20,
-            }}
-          >
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
+            marginTop: 20,
+          }}
+        >
+          {caseStatus ===
+            'ready_for_reassessment' && (
             <button
               className="primary-button"
               onClick={
@@ -1177,8 +1207,16 @@ export default function RehabCase() {
               <RefreshCw size={16} />
               Start Reassessment FCE
             </button>
-          </div>
-        )}
+          )}
+
+          <button
+            className="secondary-button"
+            onClick={viewComparison}
+          >
+            <BarChart3 size={16} />
+            View FCE Comparison
+          </button>
+        </div>
 
       </div>
 
@@ -1307,18 +1345,32 @@ export default function RehabCase() {
           </strong>
         </p>
 
-        <button
-          className="secondary-button"
-          onClick={
-            startReassessment
-          }
+        <div
           style={{
+            display: 'flex',
+            gap: 10,
+            flexWrap: 'wrap',
             marginTop: 20,
           }}
         >
-          <RefreshCw size={16} />
-          Review for Reassessment
-        </button>
+          <button
+            className="secondary-button"
+            onClick={
+              startReassessment
+            }
+          >
+            <RefreshCw size={16} />
+            Review for Reassessment
+          </button>
+
+          <button
+            className="primary-button"
+            onClick={viewComparison}
+          >
+            <BarChart3 size={16} />
+            View FCE Comparison
+          </button>
+        </div>
 
       </div>
 
@@ -1415,18 +1467,23 @@ function GoalRow({
           <option value="not_started">
             Not Started
           </option>
+
           <option value="in_progress">
             In Progress
           </option>
+
           <option value="achieved">
             Achieved
           </option>
+
           <option value="partially_achieved">
             Partially Achieved
           </option>
+
           <option value="not_achieved">
             Not Achieved
           </option>
+
           <option value="cancelled">
             Cancelled
           </option>
