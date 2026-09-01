@@ -1,10 +1,15 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import {
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom'
 
 import AppShell from './components/AppShell'
 import OrganisationRoute from './components/OrganisationRoute'
 import ProtectedRoute from './components/ProtectedRoute'
 
 import Assessments from './pages/Assessments'
+import AuditTrail from './pages/AuditTrail'
 import Dashboard from './pages/Dashboard'
 import FceOutcome from './pages/FceOutcome'
 import FceRecord from './pages/FceRecord'
@@ -30,6 +35,7 @@ import Workers from './pages/Workers'
 export default function App() {
   return (
     <Routes>
+
       <Route
         path="/login"
         element={<Login />}
@@ -54,6 +60,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
+
         <Route
           index
           element={
@@ -141,7 +148,9 @@ export default function App() {
 
         <Route
           path="rehabilitation/:id/report"
-          element={<RehabDischargeReport />}
+          element={
+            <RehabDischargeReport />
+          }
         />
 
         <Route
@@ -160,10 +169,17 @@ export default function App() {
         />
 
         <Route
+          path="audit-trail"
+          element={<AuditTrail />}
+        />
+
+        <Route
           path="settings"
           element={<Settings />}
         />
+
       </Route>
+
     </Routes>
   )
 }
