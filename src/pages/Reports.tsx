@@ -55,7 +55,6 @@ type Site = StructureItem & {
 }
 
 type Department = StructureItem & {
-  operation_id: string | null
   site_id: string | null
 }
 
@@ -232,7 +231,6 @@ export default function Reports() {
         .select(`
           id,
           name,
-          operation_id,
           site_id
         `)
         .order('name'),
@@ -270,39 +268,32 @@ export default function Reports() {
     }
 
     const loadedAssessments =
-      (assessmentResponse.data ??
-        []) as Assessment[]
+      (assessmentResponse.data ?? []) as Assessment[]
 
     setAssessments(loadedAssessments)
 
     setWorkers(
-      (workerResponse.data ??
-        []) as Worker[]
+      (workerResponse.data ?? []) as Worker[]
     )
 
     setJobProfiles(
-      (jobResponse.data ??
-        []) as JobProfile[]
+      (jobResponse.data ?? []) as JobProfile[]
     )
 
     setOperations(
-      (operationResponse.data ??
-        []) as StructureItem[]
+      (operationResponse.data ?? []) as StructureItem[]
     )
 
     setSites(
-      (siteResponse.data ??
-        []) as Site[]
+      (siteResponse.data ?? []) as Site[]
     )
 
     setDepartments(
-      (departmentResponse.data ??
-        []) as Department[]
+      (departmentResponse.data ?? []) as Department[]
     )
 
     setRehabCases(
-      (rehabResponse.data ??
-        []) as RehabilitationCase[]
+      (rehabResponse.data ?? []) as RehabilitationCase[]
     )
 
     if (loadedAssessments.length === 0) {
@@ -342,8 +333,7 @@ export default function Reports() {
     }
 
     setResults(
-      (resultData ??
-        []) as FceResult[]
+      (resultData ?? []) as FceResult[]
     )
 
     setLoading(false)
@@ -453,8 +443,7 @@ export default function Reports() {
 
     if (
       operationFilter !== 'all' &&
-      worker.operation_id !==
-        operationFilter
+      worker.operation_id !== operationFilter
     ) {
       return false
     }
@@ -468,16 +457,14 @@ export default function Reports() {
 
     if (
       departmentFilter !== 'all' &&
-      worker.department_id !==
-        departmentFilter
+      worker.department_id !== departmentFilter
     ) {
       return false
     }
 
     if (
       jobFilter !== 'all' &&
-      worker.job_profile_id !==
-        jobFilter
+      worker.job_profile_id !== jobFilter
     ) {
       return false
     }
@@ -505,33 +492,17 @@ export default function Reports() {
 
   const availableDepartments =
     useMemo(() => {
+      if (siteFilter === 'all') {
+        return departments
+      }
+
       return departments.filter(
-        (department) => {
-          if (
-            operationFilter !==
-              'all' &&
-            department.operation_id &&
-            department.operation_id !==
-              operationFilter
-          ) {
-            return false
-          }
-
-          if (
-            siteFilter !== 'all' &&
-            department.site_id &&
-            department.site_id !==
-              siteFilter
-          ) {
-            return false
-          }
-
-          return true
-        }
+        (department) =>
+          department.site_id ===
+          siteFilter
       )
     }, [
       departments,
-      operationFilter,
       siteFilter,
     ])
 
@@ -542,27 +513,22 @@ export default function Reports() {
           workers
             .filter((worker) => {
               if (
-                operationFilter !==
-                  'all' &&
-                worker.operation_id !==
-                  operationFilter
+                operationFilter !== 'all' &&
+                worker.operation_id !== operationFilter
               ) {
                 return false
               }
 
               if (
                 siteFilter !== 'all' &&
-                worker.site_id !==
-                  siteFilter
+                worker.site_id !== siteFilter
               ) {
                 return false
               }
 
               if (
-                departmentFilter !==
-                  'all' &&
-                worker.department_id !==
-                  departmentFilter
+                departmentFilter !== 'all' &&
+                worker.department_id !== departmentFilter
               ) {
                 return false
               }
@@ -800,13 +766,6 @@ export default function Reports() {
             'return_to_modified_duty'
         ).length
 
-      const temporarilyUnfit =
-        filteredRehabCases.filter(
-          (item) =>
-            item.discharge_outcome ===
-            'temporarily_unfit'
-        ).length
-
       const totalSessions =
         filteredRehabCases.reduce(
           (total, item) =>
@@ -824,7 +783,6 @@ export default function Reports() {
         completed,
         fullDuty,
         modifiedDuty,
-        temporarilyUnfit,
         totalSessions,
       }
     }, [filteredRehabCases])
@@ -1264,9 +1222,7 @@ export default function Reports() {
               ? `${worker.first_name} ${worker.last_name}`
               : '',
 
-            worker
-              ?.employee_number ||
-              '',
+            worker?.employee_number || '',
 
             operation?.name || '',
 
@@ -1280,8 +1236,7 @@ export default function Reports() {
 
             assessment.assessment_status,
 
-            assessment.final_outcome ||
-              '',
+            assessment.final_outcome || '',
           ]
         }
       )
@@ -1341,8 +1296,7 @@ export default function Reports() {
         <div className="loading-spinner" />
 
         <p>
-          Loading enterprise
-          analytics...
+          Loading enterprise analytics...
         </p>
       </div>
     )
@@ -1363,9 +1317,9 @@ export default function Reports() {
           </h1>
 
           <p>
-            Mine-level functional
-            capacity, rehabilitation and
-            return-to-work intelligence.
+            Mine-level functional capacity,
+            rehabilitation and return-to-work
+            intelligence.
           </p>
         </div>
 
@@ -1463,9 +1417,7 @@ export default function Reports() {
             </span>
 
             <select
-              value={
-                operationFilter
-              }
+              value={operationFilter}
               onChange={(event) =>
                 handleOperationChange(
                   event.target.value
@@ -1480,9 +1432,7 @@ export default function Reports() {
                 (operation) => (
                   <option
                     key={operation.id}
-                    value={
-                      operation.id
-                    }
+                    value={operation.id}
                   >
                     {operation.name}
                   </option>
@@ -1527,9 +1477,7 @@ export default function Reports() {
             </span>
 
             <select
-              value={
-                departmentFilter
-              }
+              value={departmentFilter}
               onChange={(event) =>
                 handleDepartmentChange(
                   event.target.value
@@ -1543,12 +1491,8 @@ export default function Reports() {
               {availableDepartments.map(
                 (department) => (
                   <option
-                    key={
-                      department.id
-                    }
-                    value={
-                      department.id
-                    }
+                    key={department.id}
+                    value={department.id}
                   >
                     {department.name}
                   </option>
@@ -1620,26 +1564,19 @@ export default function Reports() {
         </div>
 
         <div>
-          <ClipboardCheck
-            size={18}
-          />
+          <ClipboardCheck size={18} />
 
           <span>
             COMPLETED FCES
           </span>
 
           <strong>
-            {
-              completedAssessments
-                .length
-            }
+            {completedAssessments.length}
           </strong>
         </div>
 
         <div>
-          <CheckCircle2
-            size={18}
-          />
+          <CheckCircle2 size={18} />
 
           <span>FIT</span>
 
@@ -1649,9 +1586,7 @@ export default function Reports() {
         </div>
 
         <div>
-          <ShieldAlert
-            size={18}
-          />
+          <ShieldAlert size={18} />
 
           <span>
             RESTRICTED
@@ -1663,18 +1598,14 @@ export default function Reports() {
         </div>
 
         <div>
-          <AlertTriangle
-            size={18}
-          />
+          <AlertTriangle size={18} />
 
           <span>
             TEMP. UNFIT
           </span>
 
           <strong>
-            {
-              metrics.temporarilyUnfit
-            }
+            {metrics.temporarilyUnfit}
           </strong>
         </div>
 
@@ -1686,9 +1617,7 @@ export default function Reports() {
           </span>
 
           <strong>
-            {
-              metrics.completionRate
-            }%
+            {metrics.completionRate}%
           </strong>
         </div>
 
@@ -1726,25 +1655,19 @@ export default function Reports() {
             </span>
 
             <strong>
-              {
-                filteredWorkers.length
-              }
+              {filteredWorkers.length}
             </strong>
           </div>
 
           <div>
-            <ClipboardCheck
-              size={18}
-            />
+            <ClipboardCheck size={18} />
 
             <span>
               TOTAL FCES
             </span>
 
             <strong>
-              {
-                filteredAssessments.length
-              }
+              {filteredAssessments.length}
             </strong>
           </div>
 
@@ -1756,16 +1679,12 @@ export default function Reports() {
             </span>
 
             <strong>
-              {
-                filteredRehabCases.length
-              }
+              {filteredRehabCases.length}
             </strong>
           </div>
 
           <div>
-            <ShieldAlert
-              size={18}
-            />
+            <ShieldAlert size={18} />
 
             <span>
               ACTIVE REHAB
@@ -1835,17 +1754,14 @@ export default function Reports() {
                   <div
                     style={{
                       height: '100%',
-
                       width: `${
                         (
                           item.value /
                           maxOutcome
                         ) * 100
                       }%`,
-
                       background:
                         'currentColor',
-
                       borderRadius: 999,
                     }}
                   />
@@ -1897,9 +1813,7 @@ export default function Reports() {
           </div>
 
           <div>
-            <ClipboardCheck
-              size={18}
-            />
+            <ClipboardCheck size={18} />
 
             <span>
               READY FOR REASSESSMENT
@@ -1911,9 +1825,7 @@ export default function Reports() {
           </div>
 
           <div>
-            <CheckCircle2
-              size={18}
-            />
+            <CheckCircle2 size={18} />
 
             <span>
               COMPLETED CASES
@@ -1937,18 +1849,14 @@ export default function Reports() {
           </div>
 
           <div>
-            <BriefcaseBusiness
-              size={18}
-            />
+            <BriefcaseBusiness size={18} />
 
             <span>
               MODIFIED DUTY RTW
             </span>
 
             <strong>
-              {
-                rehabMetrics.modifiedDuty
-              }
+              {rehabMetrics.modifiedDuty}
             </strong>
           </div>
 
@@ -1960,9 +1868,7 @@ export default function Reports() {
             </span>
 
             <strong>
-              {
-                rehabMetrics.totalSessions
-              }
+              {rehabMetrics.totalSessions}
             </strong>
           </div>
 
@@ -1980,8 +1886,7 @@ export default function Reports() {
 
           <div>
             <h2>
-              Common Functional
-              Difficulties
+              Common Functional Difficulties
             </h2>
 
             <p>
@@ -1994,8 +1899,7 @@ export default function Reports() {
 
         </div>
 
-        {demandSummary.length ===
-        0 ? (
+        {demandSummary.length === 0 ? (
           <p>
             No FCE test data available
             for the selected filters.
@@ -2035,21 +1939,15 @@ export default function Reports() {
                       </td>
 
                       <td>
-                        {
-                          item.assessments
-                        }
+                        {item.assessments}
                       </td>
 
                       <td>
-                        {
-                          item.borderline
-                        }
+                        {item.borderline}
                       </td>
 
                       <td>
-                        {
-                          item.failures
-                        }
+                        {item.failures}
                       </td>
                     </tr>
                   )
@@ -2069,15 +1967,12 @@ export default function Reports() {
         <div className="assessment-section-title">
 
           <div className="assessment-section-icon">
-            <BriefcaseBusiness
-              size={20}
-            />
+            <BriefcaseBusiness size={20} />
           </div>
 
           <div>
             <h2>
-              Job Profile Risk
-              Overview
+              Job Profile Risk Overview
             </h2>
 
             <p>
@@ -2090,8 +1985,7 @@ export default function Reports() {
 
         </div>
 
-        {jobSummary.length ===
-        0 ? (
+        {jobSummary.length === 0 ? (
           <p>
             No assessed job profiles
             available for the selected
@@ -2138,27 +2032,19 @@ export default function Reports() {
                       </td>
 
                       <td>
-                        {
-                          item.assessments
-                        }
+                        {item.assessments}
                       </td>
 
                       <td>
-                        {
-                          item.borderline
-                        }
+                        {item.borderline}
                       </td>
 
                       <td>
-                        {
-                          item.failures
-                        }
+                        {item.failures}
                       </td>
 
                       <td>
-                        {
-                          item.capacityGaps
-                        }
+                        {item.capacityGaps}
                       </td>
                     </tr>
                   )
@@ -2178,15 +2064,12 @@ export default function Reports() {
         <div className="assessment-section-title">
 
           <div className="assessment-section-icon">
-            <ShieldAlert
-              size={20}
-            />
+            <ShieldAlert size={20} />
           </div>
 
           <div>
             <h2>
-              Workers Requiring
-              Attention
+              Workers Requiring Attention
             </h2>
 
             <p>
@@ -2201,12 +2084,9 @@ export default function Reports() {
 
         </div>
 
-        {riskWorkers.length ===
-        0 ? (
+        {riskWorkers.length === 0 ? (
           <div className="fce-no-gap">
-            <CheckCircle2
-              size={20}
-            />
+            <CheckCircle2 size={20} />
 
             <span>
               No workers requiring
@@ -2263,15 +2143,11 @@ export default function Reports() {
                       </td>
 
                       <td>
-                        {
-                          item.employeeNumber
-                        }
+                        {item.employeeNumber}
                       </td>
 
                       <td>
-                        {
-                          item.operation
-                        }
+                        {item.operation}
                       </td>
 
                       <td>
@@ -2279,15 +2155,11 @@ export default function Reports() {
                       </td>
 
                       <td>
-                        {
-                          item.department
-                        }
+                        {item.department}
                       </td>
 
                       <td>
-                        {
-                          item.jobTitle
-                        }
+                        {item.jobTitle}
                       </td>
 
                       <td>
