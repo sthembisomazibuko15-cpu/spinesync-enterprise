@@ -593,6 +593,16 @@ export default function RehabCase() {
     )
   }
 
+  function viewDischargeReport() {
+    if (!rehabCase) {
+      return
+    }
+
+    navigate(
+      `/rehabilitation/${rehabCase.id}/report`
+    )
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">
@@ -662,6 +672,19 @@ export default function RehabCase() {
             flexWrap: 'wrap',
           }}
         >
+          {rehabCase.case_status ===
+            'completed' && (
+            <button
+              className="primary-button"
+              onClick={
+                viewDischargeReport
+              }
+            >
+              <ClipboardCheck size={16} />
+              View Discharge Report
+            </button>
+          )}
+
           <button
             className="secondary-button"
             onClick={viewComparison}
