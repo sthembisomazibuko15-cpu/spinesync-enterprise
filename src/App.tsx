@@ -19,6 +19,7 @@ import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
 import MskScreenings from './pages/MskScreenings'
 import NewAssessment from './pages/NewAssessment'
+import NewMskScreening from './pages/NewMskScreening'
 import NewRehabCase from './pages/NewRehabCase'
 import NewRehabSession from './pages/NewRehabSession'
 import Onboarding from './pages/Onboarding'
@@ -90,6 +91,11 @@ export default function App() {
         <Route
           path="msk-screenings"
           element={<MskScreenings />}
+        />
+
+        <Route
+          path="msk-screenings/new"
+          element={<NewMskScreening />}
         />
 
         <Route
