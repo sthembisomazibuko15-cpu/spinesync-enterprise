@@ -426,6 +426,24 @@ export default function MskScreenings() {
     return 'status-badge'
   }
 
+  function openScreening(
+    row: ScreeningRow
+  ) {
+    if (
+      row.screening_status ===
+      'completed'
+    ) {
+      navigate(
+        `/msk-screenings/${row.id}/risk`
+      )
+      return
+    }
+
+    navigate(
+      `/msk-screenings/${row.id}`
+    )
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">
@@ -889,12 +907,15 @@ export default function MskScreenings() {
                         <button
                           className="secondary-button"
                           onClick={() =>
-                            navigate(
-                              `/msk-screenings/${row.id}`
+                            openScreening(
+                              row
                             )
                           }
                         >
-                          Open
+                          {row.screening_status ===
+                          'completed'
+                            ? 'View'
+                            : 'Continue'}
                         </button>
                       </td>
                     </tr>
