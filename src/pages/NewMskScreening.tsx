@@ -66,6 +66,23 @@ export default function NewMskScreening() {
   const workerFromUrl =
     searchParams.get('worker')
 
+  const typeFromUrl =
+    searchParams.get('type')
+
+  const validScreeningTypes = [
+    'baseline',
+    'periodic',
+    'targeted',
+    'post_intervention',
+    'return_to_work',
+  ]
+
+  const initialScreeningType =
+    typeFromUrl &&
+    validScreeningTypes.includes(typeFromUrl)
+      ? typeFromUrl
+      : 'baseline'
+
   const [workers, setWorkers] =
     useState<Worker[]>([])
 
@@ -103,7 +120,7 @@ export default function NewMskScreening() {
     )
 
   const [screeningType, setScreeningType] =
-    useState('baseline')
+    useState(initialScreeningType)
 
   const [
     currentMskComplaint,
