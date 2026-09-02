@@ -17,6 +17,7 @@ import FceTesting from './pages/FceTesting'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
+import MskScreening from './pages/MskScreening'
 import MskScreenings from './pages/MskScreenings'
 import NewAssessment from './pages/NewAssessment'
 import NewMskScreening from './pages/NewMskScreening'
@@ -37,7 +38,6 @@ import Workers from './pages/Workers'
 export default function App() {
   return (
     <Routes>
-
       <Route
         path="/login"
         element={<Login />}
@@ -62,7 +62,6 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-
         <Route
           index
           element={
@@ -96,6 +95,11 @@ export default function App() {
         <Route
           path="msk-screenings/new"
           element={<NewMskScreening />}
+        />
+
+        <Route
+          path="msk-screenings/:id"
+          element={<MskScreening />}
         />
 
         <Route
@@ -187,9 +191,7 @@ export default function App() {
           path="settings"
           element={<Settings />}
         />
-
       </Route>
-
     </Routes>
   )
 }
