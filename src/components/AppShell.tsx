@@ -2,6 +2,7 @@ import {
   Activity,
   BriefcaseBusiness,
   ClipboardCheck,
+  History,
   LayoutDashboard,
   LogOut,
   Network,
@@ -89,6 +90,14 @@ export default function AppShell() {
           >
             <ClipboardCheck size={18} />
             <span>Reports</span>
+          </NavLink>
+
+          <NavLink
+            to="/audit-trail"
+            className="sidebar-link"
+          >
+            <History size={18} />
+            <span>Audit Trail</span>
           </NavLink>
 
           <NavLink
