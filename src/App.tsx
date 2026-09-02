@@ -1,138 +1,189 @@
 import {
-  Activity,
-  BriefcaseBusiness,
-  ClipboardCheck,
-  HeartPulse,
-  History,
-  LayoutDashboard,
-  LogOut,
-  Network,
-  Settings,
-  Users,
-} from 'lucide-react'
-
-import {
-  NavLink,
-  Outlet,
+  Navigate,
+  Route,
+  Routes,
 } from 'react-router-dom'
 
-import { useAuth } from '../context/AuthContext'
+import AppShell from './components/AppShell'
+import OrganisationRoute from './components/OrganisationRoute'
+import ProtectedRoute from './components/ProtectedRoute'
 
-export default function AppShell() {
-  const { signOut } = useAuth()
+import Assessments from './pages/Assessments'
+import AuditTrail from './pages/AuditTrail'
+import Dashboard from './pages/Dashboard'
+import FceOutcome from './pages/FceOutcome'
+import FceRecord from './pages/FceRecord'
+import FceTesting from './pages/FceTesting'
+import JobProfiles from './pages/JobProfiles'
+import Login from './pages/Login'
+import MiningStructure from './pages/MiningStructure'
+import MskScreenings from './pages/MskScreenings'
+import NewAssessment from './pages/NewAssessment'
+import NewRehabCase from './pages/NewRehabCase'
+import NewRehabSession from './pages/NewRehabSession'
+import Onboarding from './pages/Onboarding'
+import RehabCase from './pages/RehabCase'
+import RehabComparison from './pages/RehabComparison'
+import RehabDischarge from './pages/RehabDischarge'
+import RehabDischargeReport from './pages/RehabDischargeReport'
+import RehabReassessment from './pages/RehabReassessment'
+import Rehabilitation from './pages/Rehabilitation'
+import Reports from './pages/Reports'
+import Settings from './pages/Settings'
+import WorkerProfile from './pages/WorkerProfile'
+import Workers from './pages/Workers'
 
+export default function App() {
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-mark">
-            S
-          </div>
+    <Routes>
 
-          <div>
-            <strong>SpineSync</strong>
-            <span>Enterprise</span>
-          </div>
-        </div>
+      <Route
+        path="/login"
+        element={<Login />}
+      />
 
-        <nav className="sidebar-nav">
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <Onboarding />
+          </ProtectedRoute>
+        }
+      />
 
-          <NavLink
-            to="/dashboard"
-            className="sidebar-link"
-          >
-            <LayoutDashboard size={18} />
-            <span>Dashboard</span>
-          </NavLink>
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <OrganisationRoute>
+              <AppShell />
+            </OrganisationRoute>
+          </ProtectedRoute>
+        }
+      >
 
-          <NavLink
-            to="/workers"
-            className="sidebar-link"
-          >
-            <Users size={18} />
-            <span>Workers</span>
-          </NavLink>
+        <Route
+          index
+          element={
+            <Navigate
+              to="/dashboard"
+              replace
+            />
+          }
+        />
 
-          <NavLink
-            to="/msk-screenings"
-            className="sidebar-link"
-          >
-            <HeartPulse size={18} />
-            <span>MSK Screening</span>
-          </NavLink>
+        <Route
+          path="dashboard"
+          element={<Dashboard />}
+        />
 
-          <NavLink
-            to="/assessments"
-            className="sidebar-link"
-          >
-            <ClipboardCheck size={18} />
-            <span>Assessments</span>
-          </NavLink>
+        <Route
+          path="workers"
+          element={<Workers />}
+        />
 
-          <NavLink
-            to="/rehabilitation"
-            className="sidebar-link"
-          >
-            <Activity size={18} />
-            <span>Rehabilitation</span>
-          </NavLink>
+        <Route
+          path="workers/:id"
+          element={<WorkerProfile />}
+        />
 
-          <NavLink
-            to="/mining-structure"
-            className="sidebar-link"
-          >
-            <Network size={18} />
-            <span>Mining Structure</span>
-          </NavLink>
+        <Route
+          path="msk-screenings"
+          element={<MskScreenings />}
+        />
 
-          <NavLink
-            to="/job-profiles"
-            className="sidebar-link"
-          >
-            <BriefcaseBusiness size={18} />
-            <span>Job Profiles</span>
-          </NavLink>
+        <Route
+          path="assessments"
+          element={<Assessments />}
+        />
 
-          <NavLink
-            to="/reports"
-            className="sidebar-link"
-          >
-            <ClipboardCheck size={18} />
-            <span>Reports</span>
-          </NavLink>
+        <Route
+          path="assessments/new"
+          element={<NewAssessment />}
+        />
 
-          <NavLink
-            to="/audit-trail"
-            className="sidebar-link"
-          >
-            <History size={18} />
-            <span>Audit Trail</span>
-          </NavLink>
+        <Route
+          path="assessments/:id"
+          element={<FceTesting />}
+        />
 
-          <NavLink
-            to="/settings"
-            className="sidebar-link"
-          >
-            <Settings size={18} />
-            <span>Settings</span>
-          </NavLink>
+        <Route
+          path="assessments/:id/outcome"
+          element={<FceOutcome />}
+        />
 
-        </nav>
+        <Route
+          path="assessments/:id/record"
+          element={<FceRecord />}
+        />
 
-        <div className="sidebar-footer">
-          <button
-            className="sidebar-link"
-            onClick={signOut}
-          >
-            <LogOut size={18} />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </aside>
+        <Route
+          path="rehabilitation"
+          element={<Rehabilitation />}
+        />
 
-      <main className="app-main">
-        <Outlet />
-      </main>
-    </div>
+        <Route
+          path="rehabilitation/new"
+          element={<NewRehabCase />}
+        />
+
+        <Route
+          path="rehabilitation/:id"
+          element={<RehabCase />}
+        />
+
+        <Route
+          path="rehabilitation/:id/sessions/new"
+          element={<NewRehabSession />}
+        />
+
+        <Route
+          path="rehabilitation/:id/reassessment"
+          element={<RehabReassessment />}
+        />
+
+        <Route
+          path="rehabilitation/:id/comparison"
+          element={<RehabComparison />}
+        />
+
+        <Route
+          path="rehabilitation/:id/discharge"
+          element={<RehabDischarge />}
+        />
+
+        <Route
+          path="rehabilitation/:id/report"
+          element={<RehabDischargeReport />}
+        />
+
+        <Route
+          path="mining-structure"
+          element={<MiningStructure />}
+        />
+
+        <Route
+          path="job-profiles"
+          element={<JobProfiles />}
+        />
+
+        <Route
+          path="reports"
+          element={<Reports />}
+        />
+
+        <Route
+          path="audit-trail"
+          element={<AuditTrail />}
+        />
+
+        <Route
+          path="settings"
+          element={<Settings />}
+        />
+
+      </Route>
+
+    </Routes>
   )
 }
