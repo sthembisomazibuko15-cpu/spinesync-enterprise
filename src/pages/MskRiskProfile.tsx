@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardPlus,
   HeartPulse,
+  RefreshCw,
   Save,
   ShieldAlert,
   ShieldCheck,
@@ -2175,6 +2176,21 @@ export default function MskRiskProfile() {
                 ? 'Saving...'
                 : 'Save Risk Profile'}
             </button>
+
+            {screening.screening_status ===
+              'completed' && (
+              <button
+                className="secondary-button"
+                onClick={() =>
+                  navigate(
+                    `/msk-screenings/${id}/rescreen`
+                  )
+                }
+              >
+                <RefreshCw size={16} />
+                Compare / Re-screen
+              </button>
+            )}
 
             <button
               className="primary-button"
