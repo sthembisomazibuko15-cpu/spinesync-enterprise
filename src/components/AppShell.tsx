@@ -2,6 +2,7 @@ import {
   Activity,
   BriefcaseBusiness,
   ClipboardCheck,
+  HeartPulse,
   History,
   LayoutDashboard,
   LogOut,
@@ -50,6 +51,14 @@ export default function AppShell() {
           >
             <Users size={18} />
             <span>Workers</span>
+          </NavLink>
+
+          <NavLink
+            to="/msk-screenings"
+            className="sidebar-link"
+          >
+            <HeartPulse size={18} />
+            <span>MSK Screening</span>
           </NavLink>
 
           <NavLink
