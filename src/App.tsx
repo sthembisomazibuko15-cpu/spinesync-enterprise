@@ -17,6 +17,7 @@ import FceTesting from './pages/FceTesting'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
+import MskPhysicalScreening from './pages/MskPhysicalScreening'
 import MskScreening from './pages/MskScreening'
 import MskScreenings from './pages/MskScreenings'
 import NewAssessment from './pages/NewAssessment'
@@ -100,6 +101,11 @@ export default function App() {
         <Route
           path="msk-screenings/:id"
           element={<MskScreening />}
+        />
+
+        <Route
+          path="msk-screenings/:id/physical"
+          element={<MskPhysicalScreening />}
         />
 
         <Route
