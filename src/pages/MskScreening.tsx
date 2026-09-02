@@ -376,7 +376,7 @@ export default function MskScreening() {
 
   async function saveSymptoms() {
     if (!id) {
-      return
+      return false
     }
 
     setSaving(true)
@@ -397,16 +397,19 @@ export default function MskScreening() {
         deleteError.message
       )
       setSaving(false)
-      return
+      return false
     }
 
     const rows = symptoms.map(
       (item) => ({
         screening_id: id,
+
         body_region:
           item.body_region,
+
         symptoms_present:
           item.symptoms_present,
+
         pain_score:
           item.symptoms_present &&
           item.pain_score !== ''
@@ -414,28 +417,34 @@ export default function MskScreening() {
                 item.pain_score
               )
             : null,
+
         symptom_frequency:
           item.symptoms_present &&
           item.symptom_frequency
             ? item.symptom_frequency
             : null,
+
         symptom_duration:
           item.symptoms_present &&
           item.symptom_duration
             ? item.symptom_duration
             : null,
+
         work_related:
           item.symptoms_present
             ? item.work_related
             : false,
+
         aggravated_by_work:
           item.symptoms_present
             ? item.aggravated_by_work
             : false,
+
         affects_work_performance:
           item.symptoms_present
             ? item.affects_work_performance
             : false,
+
         notes:
           item.symptoms_present &&
           item.notes
@@ -455,7 +464,7 @@ export default function MskScreening() {
         insertError.message
       )
       setSaving(false)
-      return
+      return false
     }
 
     const {
@@ -465,6 +474,7 @@ export default function MskScreening() {
       .update({
         current_msk_complaint:
           symptomaticCount > 0,
+
         updated_at:
           new Date().toISOString(),
       })
@@ -478,7 +488,7 @@ export default function MskScreening() {
         screeningError.message
       )
       setSaving(false)
-      return
+      return false
     }
 
     setScreening(
@@ -493,10 +503,20 @@ export default function MskScreening() {
     )
 
     setSaving(false)
+    return true
   }
 
   async function saveAndContinue() {
-    await saveSymptoms()
+    const success =
+      await saveSymptoms()
+
+    if (!success) {
+      return
+    }
+
+    navigate(
+      `/msk-screenings/${id}/physical`
+    )
   }
 
   function regionLabel(
@@ -1194,7 +1214,7 @@ export default function MskScreening() {
               }}
             >
               Save current symptom
-              findings before moving
+              findings and continue
               to physical screening.
             </p>
           </div>
@@ -1209,7 +1229,9 @@ export default function MskScreening() {
 
             <button
               className="secondary-button"
-              onClick={saveSymptoms}
+              onClick={
+                saveSymptoms
+              }
               disabled={saving}
             >
               <Save size={16} />
