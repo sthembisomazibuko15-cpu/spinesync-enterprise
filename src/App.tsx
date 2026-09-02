@@ -19,6 +19,7 @@ import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
 import MskIntervention from './pages/MskIntervention'
 import MskPhysicalScreening from './pages/MskPhysicalScreening'
+import MskRescreen from './pages/MskRescreen'
 import MskRiskProfile from './pages/MskRiskProfile'
 import MskScreening from './pages/MskScreening'
 import MskScreenings from './pages/MskScreenings'
@@ -118,6 +119,11 @@ export default function App() {
         <Route
           path="msk-screenings/:id/intervention"
           element={<MskIntervention />}
+        />
+
+        <Route
+          path="msk-screenings/:id/rescreen"
+          element={<MskRescreen />}
         />
 
         <Route
