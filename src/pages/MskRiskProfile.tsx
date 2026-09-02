@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BriefcaseBusiness,
   CheckCircle2,
+  ClipboardPlus,
   HeartPulse,
   Save,
   ShieldAlert,
@@ -128,8 +129,10 @@ export default function MskRiskProfile() {
   const [symptoms, setSymptoms] =
     useState<Symptom[]>([])
 
-  const [physicalFindings, setPhysicalFindings] =
-    useState<PhysicalFinding[]>([])
+  const [
+    physicalFindings,
+    setPhysicalFindings,
+  ] = useState<PhysicalFinding[]>([])
 
   const [riskLevel, setRiskLevel] =
     useState<RiskLevel>('')
@@ -166,8 +169,10 @@ export default function MskRiskProfile() {
   const [error, setError] =
     useState<string | null>(null)
 
-  const [savedMessage, setSavedMessage] =
-    useState<string | null>(null)
+  const [
+    savedMessage,
+    setSavedMessage,
+  ] = useState<string | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -651,15 +656,6 @@ export default function MskRiskProfile() {
       return factors
     }, [jobProfile])
 
-  /*
-    These component scores are an internal
-    screening indicator system.
-
-    They are intentionally transparent and
-    must NOT be presented as a validated
-    injury-prediction model.
-  */
-
   const symptomScore =
     useMemo(() => {
       let score = 0
@@ -932,18 +928,22 @@ export default function MskRiskProfile() {
             item.body_region
           )}`
       ),
+
       ...significantPhysicalDeficits.map(
         (item) =>
           `Significant deficit: ${item.test_name}`
       ),
+
       ...moderatePhysicalDeficits.map(
         (item) =>
           `Moderate deficit: ${item.test_name}`
       ),
+
       ...exposureFactors.map(
         (item) =>
           `Exposure: ${item.label}`
       ),
+
       ...jobDemandFactors.map(
         (item) =>
           `Job demand: ${item}`
@@ -978,23 +978,33 @@ export default function MskRiskProfile() {
       .from('msk_risk_results')
       .insert({
         screening_id: id,
-        body_region: 'overall',
+
+        body_region:
+          'overall',
+
         symptom_score:
           symptomScore,
+
         physical_score:
           physicalScore,
+
         exposure_score:
           exposureScore,
+
         job_demand_score:
           jobDemandScore,
+
         total_risk_score:
           totalIndicatorScore,
+
         risk_level:
           riskLevel,
+
         contributing_factors:
           contributingFactors.join(
             '; '
           ) || null,
+
         recommended_action:
           preventiveRecommendations ||
           null,
@@ -1059,19 +1069,26 @@ export default function MskRiskProfile() {
         current
           ? {
               ...current,
+
               overall_risk_level:
                 riskLevel,
+
               risk_summary:
                 riskSummary,
+
               preventive_recommendations:
                 preventiveRecommendations,
+
               intervention_required:
                 interventionRequired,
+
               reassessment_required:
                 reassessmentRequired,
+
               recommended_rescreen_date:
                 recommendedRescreenDate ||
                 null,
+
               screening_status:
                 completeScreening
                   ? 'completed'
@@ -1089,6 +1106,23 @@ export default function MskRiskProfile() {
     )
 
     return true
+  }
+
+  async function openIntervention() {
+    if (!id) {
+      return
+    }
+
+    const success =
+      await saveRiskProfile(false)
+
+    if (!success) {
+      return
+    }
+
+    navigate(
+      `/msk-screenings/${id}/intervention`
+    )
   }
 
   async function completeScreening() {
@@ -1279,7 +1313,8 @@ export default function MskRiskProfile() {
               Expected job demands
               provide context but are
               not assumed to equal the
-              worker's actual exposure.
+              worker&apos;s actual
+              exposure.
             </p>
           </div>
         </div>
@@ -1453,6 +1488,7 @@ export default function MskRiskProfile() {
                   {formatLabel(
                     item.body_region
                   )}
+
                   {item.pain_score !==
                     null &&
                     ` · ${item.pain_score}/10`}
@@ -1672,7 +1708,7 @@ export default function MskRiskProfile() {
 
             <p>
               These values make the
-              system's reasoning
+              system&apos;s reasoning
               visible to the assessor.
             </p>
           </div>
@@ -1686,9 +1722,11 @@ export default function MskRiskProfile() {
         >
           <div>
             <HeartPulse size={18} />
+
             <span>
               SYMPTOM SCORE
             </span>
+
             <strong>
               {symptomScore}
             </strong>
@@ -1696,9 +1734,11 @@ export default function MskRiskProfile() {
 
           <div>
             <Activity size={18} />
+
             <span>
               PHYSICAL SCORE
             </span>
+
             <strong>
               {physicalScore}
             </strong>
@@ -1708,9 +1748,11 @@ export default function MskRiskProfile() {
             <BriefcaseBusiness
               size={18}
             />
+
             <span>
               EXPOSURE SCORE
             </span>
+
             <strong>
               {exposureScore}
             </strong>
@@ -1718,9 +1760,11 @@ export default function MskRiskProfile() {
 
           <div>
             <ShieldCheck size={18} />
+
             <span>
               JOB DEMAND SCORE
             </span>
+
             <strong>
               {jobDemandScore}
             </strong>
@@ -1930,7 +1974,7 @@ export default function MskRiskProfile() {
             </h2>
 
             <p>
-              Record the assessor's
+              Record the assessor&apos;s
               interpretation and
               preventive actions.
             </p>
@@ -2011,6 +2055,74 @@ export default function MskRiskProfile() {
             placeholder="Preventive exercise, education, exposure control, ergonomic review, follow-up or referral recommendations."
           />
         </label>
+
+      </div>
+
+      <div className="panel">
+
+        <div className="assessment-section-title">
+          <div className="assessment-section-icon">
+            <ClipboardPlus size={20} />
+          </div>
+
+          <div>
+            <h2>
+              Preventive Intervention
+            </h2>
+
+            <p>
+              Turn identified risk
+              factors into a practical
+              prevention programme for
+              this worker.
+            </p>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 18,
+            display: 'flex',
+            justifyContent:
+              'space-between',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <strong>
+              Intervention status
+            </strong>
+
+            <p
+              style={{
+                marginTop: 6,
+                marginBottom: 0,
+              }}
+            >
+              {interventionRequired
+                ? 'Preventive intervention has been indicated.'
+                : 'No intervention has been marked as required yet.'}
+            </p>
+          </div>
+
+          <button
+            className="primary-button"
+            disabled={saving}
+            onClick={
+              openIntervention
+            }
+          >
+            <ClipboardPlus
+              size={16}
+            />
+
+            {saving
+              ? 'Saving...'
+              : 'Create / Open Intervention'}
+          </button>
+        </div>
 
       </div>
 
