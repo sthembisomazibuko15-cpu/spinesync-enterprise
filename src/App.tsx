@@ -25,6 +25,7 @@ import MskRiskProfile from './pages/MskRiskProfile'
 import MskScreening from './pages/MskScreening'
 import MskScreenings from './pages/MskScreenings'
 import NewAssessment from './pages/NewAssessment'
+import NewMskCampaign from './pages/NewMskCampaign'
 import NewMskScreening from './pages/NewMskScreening'
 import NewRehabCase from './pages/NewRehabCase'
 import NewRehabSession from './pages/NewRehabSession'
@@ -109,9 +110,7 @@ export default function App() {
 
         <Route
           path="msk-screenings/:id/physical"
-          element={
-            <MskPhysicalScreening />
-          }
+          element={<MskPhysicalScreening />}
         />
 
         <Route
@@ -132,6 +131,11 @@ export default function App() {
         <Route
           path="msk-campaigns"
           element={<MskCampaigns />}
+        />
+
+        <Route
+          path="msk-campaigns/new"
+          element={<NewMskCampaign />}
         />
 
         <Route
@@ -196,9 +200,7 @@ export default function App() {
 
         <Route
           path="rehabilitation/:id/report"
-          element={
-            <RehabDischargeReport />
-          }
+          element={<RehabDischargeReport />}
         />
 
         <Route
