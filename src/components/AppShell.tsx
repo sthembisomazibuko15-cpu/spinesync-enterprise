@@ -1,5 +1,6 @@
 import {
   Activity,
+  BarChart3,
   BriefcaseBusiness,
   ClipboardCheck,
   HeartPulse,
@@ -67,6 +68,14 @@ export default function AppShell() {
           >
             <ShieldCheck size={18} />
             <span>Prevention Centre</span>
+          </NavLink>
+
+          <NavLink
+            to="/risk-intelligence"
+            className="sidebar-link"
+          >
+            <BarChart3 size={18} />
+            <span>Risk Intelligence</span>
           </NavLink>
 
           <NavLink
