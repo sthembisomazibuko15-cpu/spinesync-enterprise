@@ -4,6 +4,7 @@ import {
   Building2,
   ClipboardCheck,
   Edit3,
+  Eye,
   MapPin,
   Save,
   ShieldCheck,
@@ -22,6 +23,7 @@ import {
   useParams,
 } from 'react-router-dom'
 
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
 type Worker = {
@@ -69,6 +71,13 @@ type EditForm = {
 export default function WorkerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
+
+  const {
+    role,
+    profileLoading,
+    canManageWorkforce,
+    canPerformClinicalWork,
+  } = useAuth()
 
   const [worker, setWorker] =
     useState<Worker | null>(null)
@@ -125,8 +134,14 @@ export default function WorkerProfile() {
     useState<string | null>(null)
 
   useEffect(() => {
-    loadWorker()
+    void loadWorker()
   }, [id])
+
+  useEffect(() => {
+    if (!canManageWorkforce) {
+      setEditing(false)
+    }
+  }, [canManageWorkforce])
 
   async function loadWorker() {
     if (!id) {
@@ -175,16 +190,12 @@ export default function WorkerProfile() {
     setEditForm({
       operation_id:
         typedWorker.operation_id || '',
-
       site_id:
         typedWorker.site_id || '',
-
       department_id:
         typedWorker.department_id || '',
-
       job_profile_id:
         typedWorker.job_profile_id || '',
-
       employment_status:
         typedWorker.employment_status ||
         'active',
@@ -226,19 +237,11 @@ export default function WorkerProfile() {
       supabase
         .from('sites')
         .select('id,name')
-        .eq(
-          'organisation_id',
-          typedWorker.organisation_id
-        )
         .order('name'),
 
       supabase
         .from('departments')
         .select('id,name')
-        .eq(
-          'organisation_id',
-          typedWorker.organisation_id
-        )
         .order('name'),
 
       supabase
@@ -254,6 +257,38 @@ export default function WorkerProfile() {
     if (assessmentResponse.error) {
       setError(
         assessmentResponse.error.message
+      )
+      setLoading(false)
+      return
+    }
+
+    if (operationsResponse.error) {
+      setError(
+        operationsResponse.error.message
+      )
+      setLoading(false)
+      return
+    }
+
+    if (sitesResponse.error) {
+      setError(
+        sitesResponse.error.message
+      )
+      setLoading(false)
+      return
+    }
+
+    if (departmentsResponse.error) {
+      setError(
+        departmentsResponse.error.message
+      )
+      setLoading(false)
+      return
+    }
+
+    if (jobsResponse.error) {
+      setError(
+        jobsResponse.error.message
       )
       setLoading(false)
       return
@@ -321,9 +356,7 @@ export default function WorkerProfile() {
     )
 
     setDepartment(
-      currentDepartment as
-        | NamedItem
-        | null
+      currentDepartment as NamedItem | null
     )
 
     setJobProfile(
@@ -342,11 +375,20 @@ export default function WorkerProfile() {
       return
     }
 
+    if (!canManageWorkforce) {
+      setError(
+        'Your account does not have permission to edit worker assignments.'
+      )
+      setEditing(false)
+      return
+    }
+
     setSaving(true)
     setError(null)
     setMessage(null)
 
     const {
+      data: updatedWorker,
       error: updateError,
     } = await supabase
       .from('workers')
@@ -371,9 +413,19 @@ export default function WorkerProfile() {
           editForm.employment_status,
       })
       .eq('id', worker.id)
+      .select('id')
+      .maybeSingle()
 
     if (updateError) {
       setError(updateError.message)
+      setSaving(false)
+      return
+    }
+
+    if (!updatedWorker) {
+      setError(
+        'The worker was not updated. Your account may not have permission to make this change.'
+      )
       setSaving(false)
       return
     }
@@ -413,6 +465,7 @@ export default function WorkerProfile() {
 
     setEditing(false)
     setError(null)
+    setMessage(null)
   }
 
   function formatStatus(
@@ -456,12 +509,44 @@ export default function WorkerProfile() {
       return
     }
 
+    if (!canPerformClinicalWork) {
+      setError(
+        'Your account does not have permission to start an FCE.'
+      )
+      return
+    }
+
     navigate(
       `/assessments/new?worker=${worker.id}`
     )
   }
 
-  if (loading) {
+  function openAssessment(
+    assessment: Assessment
+  ) {
+    if (
+      assessment.assessment_status ===
+      'completed'
+    ) {
+      navigate(
+        `/assessments/${assessment.id}/record`
+      )
+      return
+    }
+
+    if (!canPerformClinicalWork) {
+      return
+    }
+
+    navigate(
+      `/assessments/${assessment.id}`
+    )
+  }
+
+  if (
+    loading ||
+    profileLoading
+  ) {
     return (
       <div className="auth-loading">
         <div className="loading-spinner" />
@@ -548,30 +633,62 @@ export default function WorkerProfile() {
           }}
         >
 
-          <button
-            className="secondary-button"
-            onClick={() => {
-              setEditing(true)
-              setMessage(null)
-            }}
-          >
-            <Edit3 size={16} />
-            Edit Worker
-          </button>
+          {canManageWorkforce && (
+            <button
+              className="secondary-button"
+              onClick={() => {
+                setEditing(true)
+                setMessage(null)
+                setError(null)
+              }}
+            >
+              <Edit3 size={16} />
+              Edit Worker
+            </button>
+          )}
 
-          <button
-            className="primary-button"
-            onClick={startFce}
-          >
-            <ClipboardCheck
-              size={16}
-            />
-            Start FCE
-          </button>
+          {canPerformClinicalWork && (
+            <button
+              className="primary-button"
+              onClick={startFce}
+            >
+              <ClipboardCheck
+                size={16}
+              />
+              Start FCE
+            </button>
+          )}
 
         </div>
 
       </div>
+
+      {role === 'viewer' && (
+        <div className="panel">
+          <div
+            style={{
+              display: 'flex',
+              gap: '10px',
+              alignItems: 'center',
+            }}
+          >
+            <Eye size={18} />
+
+            <div>
+              <strong>
+                Read-only access
+              </strong>
+
+              <div>
+                You can view this worker's
+                information and completed
+                records, but you cannot modify
+                worker or clinical information.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="error-message">
@@ -587,7 +704,8 @@ export default function WorkerProfile() {
 
       {/* EDIT WORKER */}
 
-      {editing && (
+      {editing &&
+        canManageWorkforce && (
         <form
           className="panel stack"
           onSubmit={saveWorker}
@@ -634,8 +752,7 @@ export default function WorkerProfile() {
                     (current) => ({
                       ...current,
                       operation_id:
-                        event.target
-                          .value,
+                        event.target.value,
                     })
                   )
                 }
@@ -672,8 +789,7 @@ export default function WorkerProfile() {
                     (current) => ({
                       ...current,
                       site_id:
-                        event.target
-                          .value,
+                        event.target.value,
                     })
                   )
                 }
@@ -710,8 +826,7 @@ export default function WorkerProfile() {
                     (current) => ({
                       ...current,
                       department_id:
-                        event.target
-                          .value,
+                        event.target.value,
                     })
                   )
                 }
@@ -748,8 +863,7 @@ export default function WorkerProfile() {
                     (current) => ({
                       ...current,
                       job_profile_id:
-                        event.target
-                          .value,
+                        event.target.value,
                     })
                   )
                 }
@@ -787,8 +901,7 @@ export default function WorkerProfile() {
                     (current) => ({
                       ...current,
                       employment_status:
-                        event.target
-                          .value,
+                        event.target.value,
                     })
                   )
                 }
@@ -871,7 +984,9 @@ export default function WorkerProfile() {
           </div>
 
           <div>
-            <span>Sex</span>
+            <span>
+              Sex
+            </span>
 
             <strong>
               {formatStatus(
@@ -905,7 +1020,9 @@ export default function WorkerProfile() {
         <div className="fce-info-table">
 
           <div>
-            <span>Operation</span>
+            <span>
+              Operation
+            </span>
 
             <strong>
               {operation?.name ||
@@ -925,7 +1042,9 @@ export default function WorkerProfile() {
           </div>
 
           <div>
-            <span>Department</span>
+            <span>
+              Department
+            </span>
 
             <strong>
               {department?.name ||
@@ -960,7 +1079,9 @@ export default function WorkerProfile() {
         <div className="fce-info-table">
 
           <div>
-            <span>Job</span>
+            <span>
+              Job
+            </span>
 
             <strong>
               {jobProfile?.title ||
@@ -1066,72 +1187,75 @@ export default function WorkerProfile() {
               <tbody>
 
                 {assessments.map(
-                  (assessment) => (
-                    <tr
-                      key={
-                        assessment.id
-                      }
-                    >
+                  (assessment) => {
+                    const completed =
+                      assessment
+                        .assessment_status ===
+                      'completed'
 
-                      <td>
-                        {formatDate(
-                          assessment
-                            .assessment_date
-                        )}
-                      </td>
+                    const canOpen =
+                      completed ||
+                      canPerformClinicalWork
 
-                      <td>
-                        {formatStatus(
-                          assessment
-                            .assessment_type
-                        )}
-                      </td>
+                    return (
+                      <tr
+                        key={assessment.id}
+                      >
 
-                      <td>
-                        {formatStatus(
-                          assessment
-                            .assessment_status
-                        )}
-                      </td>
+                        <td>
+                          {formatDate(
+                            assessment
+                              .assessment_date
+                          )}
+                        </td>
 
-                      <td>
-                        {formatStatus(
-                          assessment
-                            .final_outcome
-                        )}
-                      </td>
+                        <td>
+                          {formatStatus(
+                            assessment
+                              .assessment_type
+                          )}
+                        </td>
 
-                      <td>
+                        <td>
+                          {formatStatus(
+                            assessment
+                              .assessment_status
+                          )}
+                        </td>
 
-                        <button
-                          className="secondary-button"
-                          onClick={() => {
-                            if (
-                              assessment
-                                .assessment_status ===
-                              'completed'
-                            ) {
-                              navigate(
-                                `/assessments/${assessment.id}/record`
-                              )
-                            } else {
-                              navigate(
-                                `/assessments/${assessment.id}`
-                              )
-                            }
-                          }}
-                        >
-                          {assessment
-                            .assessment_status ===
-                          'completed'
-                            ? 'View FCE'
-                            : 'Continue'}
-                        </button>
+                        <td>
+                          {formatStatus(
+                            assessment
+                              .final_outcome
+                          )}
+                        </td>
 
-                      </td>
+                        <td>
 
-                    </tr>
-                  )
+                          {canOpen ? (
+                            <button
+                              className="secondary-button"
+                              onClick={() =>
+                                openAssessment(
+                                  assessment
+                                )
+                              }
+                            >
+                              {completed
+                                ? 'View FCE'
+                                : 'Continue'}
+                            </button>
+                          ) : (
+                            <span>
+                              Read only
+                            </span>
+                          )}
+
+                        </td>
+
+                      </tr>
+                    )
+                  }
                 )}
 
               </tbody>
