@@ -17,6 +17,7 @@ import FceTesting from './pages/FceTesting'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
+import MskCampaigns from './pages/MskCampaigns'
 import MskIntervention from './pages/MskIntervention'
 import MskPhysicalScreening from './pages/MskPhysicalScreening'
 import MskRescreen from './pages/MskRescreen'
@@ -108,7 +109,9 @@ export default function App() {
 
         <Route
           path="msk-screenings/:id/physical"
-          element={<MskPhysicalScreening />}
+          element={
+            <MskPhysicalScreening />
+          }
         />
 
         <Route
@@ -124,6 +127,11 @@ export default function App() {
         <Route
           path="msk-screenings/:id/rescreen"
           element={<MskRescreen />}
+        />
+
+        <Route
+          path="msk-campaigns"
+          element={<MskCampaigns />}
         />
 
         <Route
@@ -188,7 +196,9 @@ export default function App() {
 
         <Route
           path="rehabilitation/:id/report"
-          element={<RehabDischargeReport />}
+          element={
+            <RehabDischargeReport />
+          }
         />
 
         <Route
