@@ -46,16 +46,18 @@ type Profile = {
 type Site = {
   id: string
   name: string
+  operation_id: string | null
 }
 
 type Department = {
   id: string
+  site_id: string
   name: string
 }
 
 type JobProfile = {
   id: string
-  job_title: string | null
+  title: string | null
   job_code: string | null
 }
 
@@ -89,12 +91,12 @@ export default function MskCampaigns() {
   >([])
 
   const [sites, setSites] = useState<Site[]>([])
-  const [departments, setDepartments] = useState<Department[]>(
-    []
-  )
-  const [jobProfiles, setJobProfiles] = useState<JobProfile[]>(
-    []
-  )
+  const [departments, setDepartments] = useState<
+    Department[]
+  >([])
+  const [jobProfiles, setJobProfiles] = useState<
+    JobProfile[]
+  >([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -111,9 +113,7 @@ export default function MskCampaigns() {
       setError('')
 
       const {
-        data: {
-          user,
-        },
+        data: { user },
         error: userError,
       } = await supabase.auth.getUser()
 
@@ -146,17 +146,20 @@ export default function MskCampaigns() {
         )
       }
 
+      /*
+       * Load organisation-level records first.
+       * Departments cannot be filtered by organisation_id
+       * because departments belong to sites.
+       */
       const [
         campaignsResult,
         workersResult,
         sitesResult,
-        departmentsResult,
         jobProfilesResult,
       ] = await Promise.all([
         supabase
           .from('msk_screening_campaigns')
-          .select(
-            `
+          .select(`
             id,
             organisation_id,
             campaign_name,
@@ -172,39 +175,36 @@ export default function MskCampaigns() {
             campaign_status,
             target_workers,
             created_at
-          `
+          `)
+          .eq(
+            'organisation_id',
+            profile.organisation_id
           )
-          .eq('organisation_id', profile.organisation_id)
           .order('start_date', {
             ascending: false,
           }),
 
         supabase
           .from('msk_campaign_workers')
-          .select(
-            `
+          .select(`
             id,
             campaign_id,
             worker_id,
             screening_id,
             assignment_status
-          `
-          ),
+          `),
 
         supabase
           .from('sites')
-          .select('id, name')
-          .eq('organisation_id', profile.organisation_id),
-
-        supabase
-          .from('departments')
-          .select('id, name')
-          .eq('organisation_id', profile.organisation_id),
+          .select('id, name, operation_id'),
 
         supabase
           .from('job_profiles')
-          .select('id, job_title, job_code')
-          .eq('organisation_id', profile.organisation_id),
+          .select('id, title, job_code')
+          .eq(
+            'organisation_id',
+            profile.organisation_id
+          ),
       ])
 
       if (campaignsResult.error) {
@@ -219,12 +219,39 @@ export default function MskCampaigns() {
         throw sitesResult.error
       }
 
-      if (departmentsResult.error) {
-        throw departmentsResult.error
-      }
-
       if (jobProfilesResult.error) {
         throw jobProfilesResult.error
+      }
+
+      const loadedSites =
+        (sitesResult.data ?? []) as Site[]
+
+      /*
+       * Departments belong to sites.
+       * Load only departments attached to the sites
+       * available to this organisation.
+       */
+      const siteIds = loadedSites.map(
+        (site) => site.id
+      )
+
+      let loadedDepartments: Department[] = []
+
+      if (siteIds.length > 0) {
+        const {
+          data: departmentData,
+          error: departmentError,
+        } = await supabase
+          .from('departments')
+          .select('id, site_id, name')
+          .in('site_id', siteIds)
+
+        if (departmentError) {
+          throw departmentError
+        }
+
+        loadedDepartments =
+          (departmentData ?? []) as Department[]
       }
 
       setCampaigns(
@@ -235,18 +262,19 @@ export default function MskCampaigns() {
         (workersResult.data ?? []) as CampaignWorker[]
       )
 
-      setSites(
-        (sitesResult.data ?? []) as Site[]
-      )
+      setSites(loadedSites)
 
-      setDepartments(
-        (departmentsResult.data ?? []) as Department[]
-      )
+      setDepartments(loadedDepartments)
 
       setJobProfiles(
         (jobProfilesResult.data ?? []) as JobProfile[]
       )
     } catch (err) {
+      console.error(
+        'MSK campaign load error:',
+        err
+      )
+
       const message =
         err instanceof Error
           ? err.message
@@ -279,7 +307,8 @@ export default function MskCampaigns() {
         item.assignment_status === 'excluded'
     ).length
 
-    const activeAssigned = assigned.length - excluded
+    const activeAssigned =
+      assigned.length - excluded
 
     const outstanding = Math.max(
       activeAssigned - screened,
@@ -311,7 +340,9 @@ export default function MskCampaigns() {
     )
   }
 
-  function getDepartmentName(id: string | null) {
+  function getDepartmentName(
+    id: string | null
+  ) {
     if (!id) return null
 
     return (
@@ -321,7 +352,9 @@ export default function MskCampaigns() {
     )
   }
 
-  function getJobProfileName(id: string | null) {
+  function getJobProfileName(
+    id: string | null
+  ) {
     if (!id) return null
 
     const profile = jobProfiles.find(
@@ -330,12 +363,12 @@ export default function MskCampaigns() {
 
     if (!profile) return null
 
-    if (profile.job_title && profile.job_code) {
-      return `${profile.job_title} (${profile.job_code})`
+    if (profile.title && profile.job_code) {
+      return `${profile.title} (${profile.job_code})`
     }
 
     return (
-      profile.job_title ??
+      profile.title ??
       profile.job_code ??
       null
     )
@@ -358,7 +391,9 @@ export default function MskCampaigns() {
       return jobProfile
     }
 
-    const site = getSiteName(campaign.site_id)
+    const site = getSiteName(
+      campaign.site_id
+    )
 
     if (site) {
       return site
@@ -368,14 +403,17 @@ export default function MskCampaigns() {
   }
 
   const filteredCampaigns = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query =
+      search.trim().toLowerCase()
 
     return campaigns.filter((campaign) => {
       const matchesStatus =
         statusFilter === 'all' ||
-        campaign.campaign_status === statusFilter
+        campaign.campaign_status ===
+          statusFilter
 
-      const target = getTargetLabel(campaign)
+      const target =
+        getTargetLabel(campaign)
 
       const searchableText = [
         campaign.campaign_name,
@@ -391,7 +429,10 @@ export default function MskCampaigns() {
         !query ||
         searchableText.includes(query)
 
-      return matchesStatus && matchesSearch
+      return (
+        matchesStatus &&
+        matchesSearch
+      )
     })
   }, [
     campaigns,
@@ -402,26 +443,35 @@ export default function MskCampaigns() {
     jobProfiles,
   ])
 
-  const totalCampaigns = campaigns.length
+  const totalCampaigns =
+    campaigns.length
 
-  const activeCampaigns = campaigns.filter(
-    (campaign) =>
-      campaign.campaign_status === 'active'
-  ).length
+  const activeCampaigns =
+    campaigns.filter(
+      (campaign) =>
+        campaign.campaign_status ===
+        'active'
+    ).length
 
-  const totalAssignedWorkers = campaigns.reduce(
-    (total, campaign) =>
-      total +
-      getCampaignStats(campaign.id).assigned,
-    0
-  )
+  const totalAssignedWorkers =
+    campaigns.reduce(
+      (total, campaign) =>
+        total +
+        getCampaignStats(
+          campaign.id
+        ).assigned,
+      0
+    )
 
-  const totalScreenedWorkers = campaigns.reduce(
-    (total, campaign) =>
-      total +
-      getCampaignStats(campaign.id).screened,
-    0
-  )
+  const totalScreenedWorkers =
+    campaigns.reduce(
+      (total, campaign) =>
+        total +
+        getCampaignStats(
+          campaign.id
+        ).screened,
+      0
+    )
 
   const overallCompletion =
     totalAssignedWorkers > 0
@@ -437,9 +487,13 @@ export default function MskCampaigns() {
       <div className="page">
         <div className="page-header">
           <div>
-            <h1>MSK Screening Campaigns</h1>
+            <h1>
+              MSK Screening Campaigns
+            </h1>
+
             <p>
-              Loading screening campaigns...
+              Loading screening
+              campaigns...
             </p>
           </div>
         </div>
@@ -451,11 +505,14 @@ export default function MskCampaigns() {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>MSK Screening Campaigns</h1>
+          <h1>
+            MSK Screening Campaigns
+          </h1>
 
           <p>
             Plan and monitor workforce
-            musculoskeletal screening programmes.
+            musculoskeletal screening
+            programmes.
           </p>
         </div>
 
@@ -463,7 +520,9 @@ export default function MskCampaigns() {
           className="primary-button"
           type="button"
           onClick={() =>
-            navigate('/msk-campaigns/new')
+            navigate(
+              '/msk-campaigns/new'
+            )
           }
         >
           <Plus size={18} />
@@ -484,8 +543,12 @@ export default function MskCampaigns() {
           </div>
 
           <div>
-            <span>Total Campaigns</span>
-            <strong>{totalCampaigns}</strong>
+            <span>
+              Total Campaigns
+            </span>
+            <strong>
+              {totalCampaigns}
+            </strong>
           </div>
         </div>
 
@@ -495,8 +558,12 @@ export default function MskCampaigns() {
           </div>
 
           <div>
-            <span>Active Campaigns</span>
-            <strong>{activeCampaigns}</strong>
+            <span>
+              Active Campaigns
+            </span>
+            <strong>
+              {activeCampaigns}
+            </strong>
           </div>
         </div>
 
@@ -506,18 +573,26 @@ export default function MskCampaigns() {
           </div>
 
           <div>
-            <span>Assigned Workers</span>
-            <strong>{totalAssignedWorkers}</strong>
+            <span>
+              Assigned Workers
+            </span>
+            <strong>
+              {totalAssignedWorkers}
+            </strong>
           </div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon">
-            <CheckCircle2 size={22} />
+            <CheckCircle2
+              size={22}
+            />
           </div>
 
           <div>
-            <span>Overall Completion</span>
+            <span>
+              Overall Completion
+            </span>
             <strong>
               {overallCompletion}%
             </strong>
@@ -532,7 +607,8 @@ export default function MskCampaigns() {
             gap: '12px',
             flexWrap: 'wrap',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent:
+              'space-between',
           }}
         >
           <div
@@ -548,7 +624,8 @@ export default function MskCampaigns() {
                 position: 'absolute',
                 left: '14px',
                 top: '50%',
-                transform: 'translateY(-50%)',
+                transform:
+                  'translateY(-50%)',
                 opacity: 0.55,
               }}
             />
@@ -557,7 +634,9 @@ export default function MskCampaigns() {
               type="text"
               value={search}
               onChange={(event) =>
-                setSearch(event.target.value)
+                setSearch(
+                  event.target.value
+                )
               }
               placeholder="Search campaigns..."
               style={{
@@ -570,7 +649,9 @@ export default function MskCampaigns() {
           <select
             value={statusFilter}
             onChange={(event) =>
-              setStatusFilter(event.target.value)
+              setStatusFilter(
+                event.target.value
+              )
             }
           >
             <option value="all">
@@ -629,7 +710,9 @@ export default function MskCampaigns() {
                 type="button"
                 className="primary-button"
                 onClick={() =>
-                  navigate('/msk-campaigns/new')
+                  navigate(
+                    '/msk-campaigns/new'
+                  )
                 }
                 style={{
                   marginTop: '14px',
@@ -651,10 +734,13 @@ export default function MskCampaigns() {
           {filteredCampaigns.map(
             (campaign) => {
               const stats =
-                getCampaignStats(campaign.id)
+                getCampaignStats(
+                  campaign.id
+                )
 
               const targetWorkers =
-                campaign.target_workers ?? 0
+                campaign.target_workers ??
+                0
 
               return (
                 <div
@@ -678,9 +764,11 @@ export default function MskCampaigns() {
                       <div
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems:
+                            'center',
                           gap: '10px',
-                          flexWrap: 'wrap',
+                          flexWrap:
+                            'wrap',
                         }}
                       >
                         <h3
@@ -688,7 +776,9 @@ export default function MskCampaigns() {
                             margin: 0,
                           }}
                         >
-                          {campaign.campaign_name}
+                          {
+                            campaign.campaign_name
+                          }
                         </h3>
 
                         <span
@@ -728,7 +818,8 @@ export default function MskCampaigns() {
                       <div
                         style={{
                           display: 'flex',
-                          flexWrap: 'wrap',
+                          flexWrap:
+                            'wrap',
                           gap: '18px',
                           marginTop: '18px',
                           fontSize: '14px',
@@ -749,7 +840,8 @@ export default function MskCampaigns() {
                             style={{
                               verticalAlign:
                                 'middle',
-                              marginRight: '5px',
+                              marginRight:
+                                '5px',
                             }}
                           />
 
@@ -767,11 +859,14 @@ export default function MskCampaigns() {
                       {campaign.description && (
                         <p
                           style={{
-                            marginTop: '14px',
+                            marginTop:
+                              '14px',
                             marginBottom: 0,
                           }}
                         >
-                          {campaign.description}
+                          {
+                            campaign.description
+                          }
                         </p>
                       )}
                     </div>
@@ -788,7 +883,8 @@ export default function MskCampaigns() {
                           gridTemplateColumns:
                             'repeat(3, 1fr)',
                           gap: '10px',
-                          marginBottom: '14px',
+                          marginBottom:
+                            '14px',
                         }}
                       >
                         <div>
@@ -803,7 +899,9 @@ export default function MskCampaigns() {
                           </div>
 
                           <strong>
-                            {stats.assigned}
+                            {
+                              stats.assigned
+                            }
                           </strong>
                         </div>
 
@@ -819,7 +917,9 @@ export default function MskCampaigns() {
                           </div>
 
                           <strong>
-                            {stats.screened}
+                            {
+                              stats.screened
+                            }
                           </strong>
                         </div>
 
@@ -835,7 +935,9 @@ export default function MskCampaigns() {
                           </div>
 
                           <strong>
-                            {stats.outstanding}
+                            {
+                              stats.outstanding
+                            }
                           </strong>
                         </div>
                       </div>
@@ -843,7 +945,8 @@ export default function MskCampaigns() {
                       <div
                         style={{
                           height: '8px',
-                          borderRadius: '999px',
+                          borderRadius:
+                            '999px',
                           overflow: 'hidden',
                           background:
                             'rgba(15, 23, 42, 0.08)',
@@ -873,14 +976,19 @@ export default function MskCampaigns() {
                         }}
                       >
                         <span>
-                          {stats.completion}%
-                          complete
+                          {
+                            stats.completion
+                          }
+                          % complete
                         </span>
 
-                        {targetWorkers > 0 && (
+                        {targetWorkers >
+                          0 && (
                           <span>
                             Target:{' '}
-                            {targetWorkers}
+                            {
+                              targetWorkers
+                            }
                           </span>
                         )}
                       </div>
@@ -895,12 +1003,14 @@ export default function MskCampaigns() {
                         }
                         style={{
                           width: '100%',
-                          marginTop: '16px',
+                          marginTop:
+                            '16px',
                           justifyContent:
                             'center',
                         }}
                       >
                         Open Campaign
+
                         <ChevronRight
                           size={17}
                         />
