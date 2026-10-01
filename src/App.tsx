@@ -39,6 +39,7 @@ import RehabDischargeReport from './pages/RehabDischargeReport'
 import RehabReassessment from './pages/RehabReassessment'
 import Rehabilitation from './pages/Rehabilitation'
 import Reports from './pages/Reports'
+import RiskIntelligence from './pages/RiskIntelligence'
 import Settings from './pages/Settings'
 import WorkerProfile from './pages/WorkerProfile'
 import Workers from './pages/Workers'
@@ -121,6 +122,11 @@ export default function App() {
         <Route
           path="prevention-centre"
           element={<PreventionCentre />}
+        />
+
+        <Route
+          path="risk-intelligence"
+          element={<RiskIntelligence />}
         />
 
         <Route path="assessments" element={<Assessments />} />
