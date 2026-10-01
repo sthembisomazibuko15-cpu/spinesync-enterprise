@@ -69,6 +69,9 @@ export default function NewMskScreening() {
   const typeFromUrl =
     searchParams.get('type')
 
+  const campaignFromUrl =
+    searchParams.get('campaign')
+
   const validScreeningTypes = [
     'baseline',
     'periodic',
@@ -562,6 +565,9 @@ export default function NewMskScreening() {
           profileData.organisation_id,
 
         worker_id: workerId,
+
+        campaign_id:
+          campaignFromUrl || null,
 
         screened_by:
           userData.user.id,
