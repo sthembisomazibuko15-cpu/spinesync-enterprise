@@ -17,6 +17,7 @@ import FceTesting from './pages/FceTesting'
 import JobProfiles from './pages/JobProfiles'
 import Login from './pages/Login'
 import MiningStructure from './pages/MiningStructure'
+import MskCampaign from './pages/MskCampaign'
 import MskCampaigns from './pages/MskCampaigns'
 import MskIntervention from './pages/MskIntervention'
 import MskPhysicalScreening from './pages/MskPhysicalScreening'
@@ -136,6 +137,11 @@ export default function App() {
         <Route
           path="msk-campaigns/new"
           element={<NewMskCampaign />}
+        />
+
+        <Route
+          path="msk-campaigns/:id"
+          element={<MskCampaign />}
         />
 
         <Route
