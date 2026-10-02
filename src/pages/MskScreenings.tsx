@@ -717,22 +717,24 @@ export default function MskScreenings() {
               intelligence.
             </p>
 
-            <button
-              className="primary-button"
-              onClick={() =>
-                navigate(
-                  '/msk-screenings/new'
-                )
-              }
-              style={{
-                marginTop: 12,
-              }}
-            >
-              <ClipboardPlus
-                size={16}
-              />
-              Start First Screening
-            </button>
+            {canPerformClinicalWork && (
+              <button
+                className="primary-button"
+                onClick={() =>
+                  navigate(
+                    '/msk-screenings/new'
+                  )
+                }
+                style={{
+                  marginTop: 12,
+                }}
+              >
+                <ClipboardPlus
+                  size={16}
+                />
+                Start First Screening
+              </button>
+            )}
           </div>
         ) : (
           <div className="fce-report-table-wrap">
